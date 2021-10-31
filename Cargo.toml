@@ -1,8 +1,19 @@
 [package]
-name = "one_more_time"
+name = "game"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+glfw = "0.42.0"
+glium = "0.30.2"
+imgui = "0.8.0"
+
+nalgebra-glm = "0.15.0"
+
+toml = "0.5.8"
+
+enum-map = "1.1.1"
+strum = "0.22.0"
+strum_macros = "0.22"
