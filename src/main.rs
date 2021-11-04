@@ -3,15 +3,14 @@ mod util;
 mod view;
 
 use input::keyboard::{Key, KeyAction, Keyboard};
-use std::{path::Path, process};
+use std::{path::Path, process, thread, time::Duration};
 use util::Settings;
-use view::window::{glfw_window, GlfwWindow, Window, WindowHandle};
+use view::window::{GlfwWindow, Sdl2Window, Window, WindowHandle, WindowSettings};
 
-static SETTINGS_FILE: &str = "settings.toml";
+static SETTINGS_FILE: &str = "config/settings.toml";
 
 fn main() {
-  type WindowApi = GlfwWindow;
-  type WindowSettings = glfw_window::WindowSettings;
+  type WindowApi = Sdl2Window;
 
   let settings_file = Path::new(SETTINGS_FILE);
 
@@ -25,17 +24,35 @@ fn main() {
 
   let mut window = Window::new(handle);
 
-  if !window.open() {
-    println!("failed to open window");
-    process::exit(1);
-  }
+  let mut i = 0;
+  'main: loop {
+    i = (i + 1) % 255;
 
-  while !window.close_requested() {
     window.process_input(&mut keyboard);
 
     if keyboard.check(Key::Esc) == KeyAction::Press {
       window.close();
     }
+
+    if window.close_requested() {
+      break 'main;
+    }
+
+    // game logic
+
+    window.bg_color((1, 64, 255 - i));
+
+    window.clear_color();
+
+    keyboard.new_frame();
+
+    // render logic
+
+    window.present();
+
+    // calculate frame stats
+
+    thread::sleep(Duration::from_nanos(16666666));
   }
 
   settings.save(settings_file).unwrap();

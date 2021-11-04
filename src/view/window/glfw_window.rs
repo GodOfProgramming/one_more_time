@@ -1,40 +1,28 @@
-use super::WindowHandle;
+use super::{WindowHandle, WindowSettings};
 use crate::input::keyboard::{Key, KeyAction, KeyEvent, Keyboard};
-use crate::util::Settings;
-use glfw::{Glfw, Window, WindowEvent, WindowHint};
-use glm::U32Vec2;
-use nalgebra_glm as glm;
+use glfw::{Glfw, OpenGlProfileHint, Window, WindowEvent, WindowHint};
 use std::sync::mpsc::Receiver;
 
-trait TransformEvent<From, To> {
-  fn transform(from: &From) -> To;
-}
-
-pub struct WindowSettings {
-  title: String,
-  dimentions: U32Vec2,
-}
-
-impl WindowSettings {
-  pub fn new(settings: &Settings) -> Self {
-    Self {
-      title: settings.display.title.clone(),
-      dimentions: glm::vec2(settings.display.width, settings.display.height),
-    }
-  }
-}
-
 pub struct GlfwWindow {
-  glfw_handle: Glfw,
+  _glfw_handle: Glfw,
   window_handle: Window,
   event_stream: Receiver<(f64, WindowEvent)>,
-  width: u32,
-  height: u32,
+  _width: u32,
+  _height: u32,
 }
 
 impl GlfwWindow {
   pub fn new(settings: WindowSettings) -> Self {
-    let glfw_handle = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+    let mut glfw_handle = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+
+    glfw_handle.window_hint(WindowHint::ContextVersionMajor(3));
+    glfw_handle.window_hint(WindowHint::ContextVersionMinor(3));
+    glfw_handle.window_hint(WindowHint::OpenGlProfile(OpenGlProfileHint::Core));
+    glfw_handle.window_hint(WindowHint::Resizable(false));
+    glfw_handle.window_hint(WindowHint::Visible(false));
+    glfw_handle.window_hint(WindowHint::DoubleBuffer(true));
+    glfw_handle.window_hint(WindowHint::ContextNoError(true));
+
     let (window_handle, event_stream) = glfw_handle
       .create_window(
         settings.dimentions.x,
@@ -44,14 +32,12 @@ impl GlfwWindow {
       )
       .unwrap();
 
-      glfw_handle.window_hint(WindowHint::)
-
     Self {
-      glfw_handle,
+      _glfw_handle: glfw_handle,
       window_handle,
       event_stream,
-      width: settings.dimentions.x,
-      height: settings.dimentions.y,
+      _width: settings.dimentions.x,
+      _height: settings.dimentions.y,
     }
   }
 
@@ -101,23 +87,19 @@ impl GlfwWindow {
 }
 
 impl WindowHandle for GlfwWindow {
-  fn open(&self) -> bool {
-    true
-  }
-
-  fn process_input(&self, keyboard: &mut Keyboard) {
+  fn process_input(&mut self, keyboard: &mut Keyboard) {
     for (_, event) in &self.event_stream {
       match event {
         WindowEvent::Key(key, _scancode, action, _modifiers) => {
           keyboard.process(GlfwWindow::convert_key_event(key, action))
         }
-        WindowEvent::MouseButton(mouse_button, action, _modifiers) => {}
+        WindowEvent::MouseButton(_mouse_button, _action, _modifiers) => {}
         _ => (),
       }
     }
   }
 
-  fn next_buffer(&mut self) {
+  fn present(&mut self) {
     todo!()
   }
 
@@ -127,5 +109,12 @@ impl WindowHandle for GlfwWindow {
 
   fn close_requested(&self) -> bool {
     self.window_handle.should_close()
+  }
+
+  fn bg_color(&mut self, _: (u8, u8, u8)) {
+    todo!()
+  }
+  fn clear_color(&mut self) {
+    todo!()
   }
 }

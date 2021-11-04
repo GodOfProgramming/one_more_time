@@ -1,0 +1,5 @@
+[display]
+height = 720
+mode = 'borderless'
+title = 'game'
+width = 1280

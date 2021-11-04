@@ -73,7 +73,9 @@ impl Keyboard {
     }
   }
 
-  pub fn process(&mut self, event: KeyEvent) {}
+  pub fn process(&mut self, event: KeyEvent) {
+    self.key_states[event.key] = event.action;
+  }
 
   pub fn check(&self, key: Key) -> KeyAction {
     self.key_states[key]
