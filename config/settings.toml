@@ -1,5 +1,8 @@
 [display]
 height = 720
-mode = 'borderless'
 title = 'game'
+video_mode = 'borderless'
 width = 1280
+
+[graphics]
+fps = 60

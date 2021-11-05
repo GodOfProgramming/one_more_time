@@ -3,14 +3,26 @@ mod util;
 mod view;
 
 use input::keyboard::{Key, KeyAction, Keyboard};
-use std::{path::Path, process, thread, time::Duration};
+use log::info;
+use std::{
+  path::Path,
+  process, thread,
+  time::{Duration, Instant},
+};
 use util::Settings;
 use view::window::{GlfwWindow, Sdl2Window, Window, WindowHandle, WindowSettings};
 
 static SETTINGS_FILE: &str = "config/settings.toml";
+const LOG_LIMIT: usize = 5;
 
 fn main() {
+  const NANOS_IN_SECS: u64 = 1_000_000_000;
   type WindowApi = Sdl2Window;
+
+  let logs = util::read_log_dir();
+  let log_file = util::next_log_rotation(logs, LOG_LIMIT);
+  println!("logging to {:?}", log_file);
+  util::setup_logger(&log_file).unwrap();
 
   let settings_file = Path::new(SETTINGS_FILE);
 
@@ -24,8 +36,14 @@ fn main() {
 
   let mut window = Window::new(handle);
 
+  let fps: u64 = settings.graphics.fps.into();
+  let base_sleep_time = Duration::from_nanos(NANOS_IN_SECS / fps);
+
+  info!("target fps = {}", fps);
+
   let mut i = 0;
   'main: loop {
+    let start = Instant::now();
     i = (i + 1) % 255;
 
     window.process_input(&mut keyboard);
@@ -52,7 +70,7 @@ fn main() {
 
     // calculate frame stats
 
-    thread::sleep(Duration::from_nanos(16666666));
+    thread::sleep(base_sleep_time.saturating_sub(Instant::now() - start));
   }
 
   settings.save(settings_file).unwrap();

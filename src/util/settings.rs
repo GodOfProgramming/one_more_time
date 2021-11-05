@@ -1,70 +1,20 @@
-use crate::view::window::WindowMode;
+mod display;
+mod graphics;
+
+pub use display::DisplaySettings;
+pub use graphics::GraphicsSettings;
 use std::{fs, path::Path};
 use toml::{value::Table, Value};
 
-#[derive(Default)]
-pub struct DisplaySettings {
-  pub title: String,
-  pub width: u32,
-  pub height: u32,
-  pub mode: WindowMode,
-}
-
-impl From<&Table> for DisplaySettings {
-  fn from(table: &Table) -> Self {
-    let mut settings = Self::default();
-
-    if let Some(Value::String(title)) = table.get("title") {
-      settings.title = title.clone();
-    }
-
-    if let Some(Value::Integer(width)) = table.get("width") {
-      settings.width = (*width).try_into().unwrap();
-    }
-
-    if let Some(Value::Integer(height)) = table.get("height") {
-      settings.height = (*height).try_into().unwrap();
-    }
-
-    if let Some(Value::String(video_mode)) = table.get("video_mode") {
-      settings.mode = WindowMode::from(video_mode);
-    }
-
-    settings
-  }
-}
-
-impl From<Table> for DisplaySettings {
-  fn from(table: Table) -> Self {
-    Self::from(&table)
-  }
-}
-
-impl Into<Table> for DisplaySettings {
-  fn into(self) -> Table {
-    let mut table = Table::new();
-
-    table.insert(String::from("title"), Value::String(self.title.clone()));
-
-    table.insert(
-      String::from("width"),
-      Value::Integer(self.width.try_into().unwrap()),
-    );
-
-    table.insert(
-      String::from("height"),
-      Value::Integer(self.height.try_into().unwrap()),
-    );
-
-    table.insert(String::from("mode"), Value::String(self.mode.to_string()));
-
-    table
-  }
+mod keys {
+  pub const DISPLAY: &str = "display";
+  pub const GRAPHICS: &str = "graphics";
 }
 
 #[derive(Default)]
 pub struct Settings {
   pub display: DisplaySettings,
+  pub graphics: GraphicsSettings,
 }
 
 impl Settings {
@@ -74,10 +24,12 @@ impl Settings {
         Ok(root) => {
           let mut settings = Settings::default();
 
-          assert!(root.is_table());
-
           if let Some(Value::Table(display)) = root.get("display") {
             settings.display = DisplaySettings::from(display);
+          }
+
+          if let Some(Value::Table(graphics)) = root.get("graphics") {
+            settings.graphics = GraphicsSettings::from(graphics);
           }
 
           Ok(settings)
@@ -91,7 +43,15 @@ impl Settings {
   pub fn save(self, p: &Path) -> Result<(), String> {
     let mut root = Table::new();
 
-    root.insert(String::from("display"), Value::Table(self.display.into()));
+    root.insert(
+      String::from(keys::DISPLAY),
+      Value::Table(self.display.into()),
+    );
+
+    root.insert(
+      String::from(keys::GRAPHICS),
+      Value::Table(self.graphics.into()),
+    );
 
     match toml::to_string_pretty(&root) {
       Ok(data) => {

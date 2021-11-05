@@ -21,3 +21,7 @@ strum = "0.22.0"
 strum_macros = "0.22"
 
 scheduled-thread-pool = "0.2.5"
+
+chrono = "0.4.19"
+fern = "0.6.0"
+log = "0.4.14"
