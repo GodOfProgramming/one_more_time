@@ -1,12 +1,13 @@
+mod fps;
 mod settings;
 
 use fern::InitError;
+pub use fps::FpsManager;
 use log::LevelFilter;
 pub use settings::Settings;
 use std::{
-  cmp::Ordering,
   ffi::OsString,
-  fs::{self, Metadata},
+  fs,
   path::{Path, PathBuf},
   time::SystemTime,
 };

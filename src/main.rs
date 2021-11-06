@@ -6,17 +6,16 @@ use input::keyboard::{Key, KeyAction, Keyboard};
 use log::info;
 use std::{
   path::Path,
-  process, thread,
+  thread,
   time::{Duration, Instant},
 };
-use util::Settings;
+use util::{FpsManager, Settings};
 use view::window::{GlfwWindow, Sdl2Window, Window, WindowHandle, WindowSettings};
 
 static SETTINGS_FILE: &str = "config/settings.toml";
 const LOG_LIMIT: usize = 5;
 
 fn main() {
-  const NANOS_IN_SECS: u64 = 1_000_000_000;
   type WindowApi = Sdl2Window;
 
   let logs = util::read_log_dir();
@@ -36,14 +35,14 @@ fn main() {
 
   let mut window = Window::new(handle);
 
-  let fps: u64 = settings.graphics.fps.into();
-  let base_sleep_time = Duration::from_nanos(NANOS_IN_SECS / fps);
+  let mut fps_manager = FpsManager::new(settings.graphics.fps.into());
 
-  info!("target fps = {}", fps);
+  info!("target fps = {}", fps_manager.target());
 
   let mut i = 0;
   'main: loop {
-    let start = Instant::now();
+    fps_manager.begin();
+
     i = (i + 1) % 255;
 
     window.process_input(&mut keyboard);
@@ -58,7 +57,7 @@ fn main() {
 
     // game logic
 
-    window.bg_color((1, 64, 255 - i));
+    window.bg_color((i, 64, 255 - i));
 
     window.clear_color();
 
@@ -70,7 +69,7 @@ fn main() {
 
     // calculate frame stats
 
-    thread::sleep(base_sleep_time.saturating_sub(Instant::now() - start));
+    fps_manager.end();
   }
 
   settings.save(settings_file).unwrap();
