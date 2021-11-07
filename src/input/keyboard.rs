@@ -56,15 +56,14 @@ pub struct KeyEvent {
   pub action: KeyAction,
 }
 
+#[derive(Default)]
 pub struct Keyboard {
   key_states: EnumMap<Key, KeyAction>,
 }
 
 impl Keyboard {
   pub fn new() -> Self {
-    Self {
-      key_states: EnumMap::default(),
-    }
+    Self::default()
   }
 
   pub fn new_frame(&mut self) {

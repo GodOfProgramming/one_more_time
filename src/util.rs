@@ -3,11 +3,13 @@ mod settings;
 
 use fern::InitError;
 pub use fps::FpsManager;
+use glium::debug::{MessageType, Severity, Source};
 use log::LevelFilter;
+use log::{error, info, warn};
 pub use settings::Settings;
 use std::{
   ffi::OsString,
-  fs,
+  fs::{self, OpenOptions},
   path::{Path, PathBuf},
   time::SystemTime,
 };
@@ -75,7 +77,7 @@ pub fn next_log_rotation(mut existing_logs: Vec<(OsString, SystemTime)>, limit: 
 }
 
 pub fn setup_logger(filename: &Path) -> Result<(), InitError> {
-  fs::create_dir_all(LOG_DIR).map_err(InitError::Io)?;
+  fs::create_dir_all(LOG_DIR)?;
 
   fern::Dispatch::new()
     .format(|out, msg, record| {
@@ -87,9 +89,43 @@ pub fn setup_logger(filename: &Path) -> Result<(), InitError> {
         msg
       ))
     })
-    .level(LevelFilter::Debug)
+    .level(LevelFilter::Trace)
     .chain(std::io::stdout())
-    .chain(fern::log_file(filename)?)
+    .chain(
+      OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(filename)?,
+    )
     .apply()
     .map_err(InitError::SetLoggerError)
+}
+
+pub fn gl_error_handler(
+  source: Source,
+  message_type: MessageType,
+  severity: Severity,
+  ident: u32,
+  handled: bool,
+  message: &str,
+) {
+  match severity {
+    glium::debug::Severity::Notification => {
+      info!("{:?} {:?} handled={:?}", source, message_type, handled);
+    }
+    glium::debug::Severity::Low => {
+      warn!("{:?} {:?} handled={:?}", source, message_type, handled);
+    }
+    glium::debug::Severity::Medium => {
+      error!("{:?} {:?} handled={:?}", source, message_type, handled);
+    }
+    glium::debug::Severity::High => {
+      error!(
+        "FATAL {:?} {:?} handled={:?}",
+        source, message_type, handled
+      );
+      std::process::exit(1);
+    }
+  }
 }

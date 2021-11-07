@@ -38,6 +38,9 @@ impl Sdl2Window {
 
     let event_pump = sdl_context.event_pump().unwrap();
 
+    let tc = canvas.texture_creator();
+    if cfg!(windows) {}
+
     Self {
       _sdl_context: sdl_context,
       _video_subsystem: video_subsystem,

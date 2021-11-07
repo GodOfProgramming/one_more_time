@@ -1,71 +1,86 @@
+mod gfx;
 mod input;
+mod math;
 mod util;
 mod view;
 
-use input::keyboard::{Key, KeyAction, Keyboard};
-use log::info;
-use std::{
-  path::Path,
-  thread,
-  time::{Duration, Instant},
+use glium::Surface;
+use input::{
+  keyboard::{Key, KeyAction},
+  InputCheck, InputDevices,
 };
+use log::{debug, info};
+use std::path::Path;
 use util::{FpsManager, Settings};
-use view::window::{GlfwWindow, Sdl2Window, Window, WindowHandle, WindowSettings};
+use view::window::{Window, WindowSettings};
 
 static SETTINGS_FILE: &str = "config/settings.toml";
 const LOG_LIMIT: usize = 5;
 
 fn main() {
-  type WindowApi = Sdl2Window;
-
   let logs = util::read_log_dir();
   let log_file = util::next_log_rotation(logs, LOG_LIMIT);
+
   println!("logging to {:?}", log_file);
   util::setup_logger(&log_file).unwrap();
 
   let settings_file = Path::new(SETTINGS_FILE);
 
-  let mut keyboard = Keyboard::new();
-
   let settings = Settings::load(settings_file).unwrap();
 
   let window_settings = WindowSettings::new(&settings);
 
-  let handle = WindowApi::new(window_settings);
+  let (window, draw_interface) = Window::new(window_settings);
 
-  let mut window = Window::new(handle);
+  let behavior = glium::debug::DebugCallbackBehavior::Custom {
+    callback: Box::new(util::gl_error_handler),
+    synchronous: true,
+  };
+
+  let gl_context = unsafe { glium::backend::Context::new(draw_interface, true, behavior).unwrap() };
 
   let mut fps_manager = FpsManager::new(settings.graphics.fps.into());
 
   info!("target fps = {}", fps_manager.target());
 
-  let mut i = 0;
+  let mut input_devices = InputDevices::default();
+
+  window.show();
+
+  let mut i: f32 = 0.0;
   'main: loop {
+    // frame setup
     fps_manager.begin();
 
-    i = (i + 1) % 255;
+    window.poll_events(&mut input_devices);
 
-    window.process_input(&mut keyboard);
+    // pre prossess game logic
 
-    if keyboard.check(Key::Esc) == KeyAction::Press {
-      window.close();
-    }
-
-    if window.close_requested() {
+    if input_devices.check(Key::Esc) == KeyAction::Press {
       break 'main;
     }
 
     // game logic
+    i += 0.1;
 
-    window.bg_color((i, 64, 255 - i));
+    // post process game logic
 
-    window.clear_color();
-
-    keyboard.new_frame();
+    input_devices.new_frame();
 
     // render logic
 
-    window.present();
+    let mut frame = glium::Frame::new(
+      gl_context.clone(),
+      (settings.display.width, settings.display.height),
+    );
+
+    // draw
+
+    frame.clear_color(i.sin(), 0.30, 1.0 - i.sin(), 1.0);
+
+    // finalize
+
+    frame.finish().unwrap();
 
     // calculate frame stats
 
