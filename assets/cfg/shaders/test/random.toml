@@ -1,0 +1,11 @@
+[player]
+vertex = "player.vs"
+fragment = "player.fs"
+
+[basic]
+vertex = "basic.vs"
+fragment = "basic.fs"
+
+[colors]
+vertex = "color.vs"
+fragment = "color.fs"

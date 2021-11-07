@@ -26,3 +26,9 @@ fern = "0.6.0"
 log = "0.4.14"
 
 chlorine = "1.0.9"
+
+[build-dependencies]
+toml = "0.5.8"
+regex = "1.5.4"
+walkdir = "2.3.2"
+maplit = "1.0.2"

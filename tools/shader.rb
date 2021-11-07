@@ -13,7 +13,7 @@ ROOT_DIR = Dir.pwd
 
 SRC_DIR = "#{ROOT_DIR}/assets/shaders/src"
 OUT_DIR = "#{ROOT_DIR}/assets/shaders/out"
-SHADER_DIR = "#{ROOT_DIR}/assets/json/shaders"
+SHADER_DIR = "#{ROOT_DIR}/assets/cfg/shaders"
 
 IMPORT_REGEX = /^#\s*import\s*"[\-\w.]+"$/.freeze
 
@@ -87,12 +87,9 @@ FileUtils.mkdir_p(OUT_DIR)
 
 shaders.each do |shader|
   forge_shader("#{SRC_DIR}/#{shader}", [], Set.new) do |code|
-    output = "#{OUT_DIR}/#{shader}"
-    puts("-- writing to #{output} --")
-    puts(code)
-    # File.open("#{OUT_DIR}/#{shader}", 'w') do |f|
-    #   f.write("/** Auto-Generated on #{Time.now} **/\n")
-    #   f.write(code)
-    # end
+    File.open("#{OUT_DIR}/#{shader}", 'w') do |f|
+      f.write("/** Auto-Generated on #{Time.now} **/\n")
+      f.write(code)
+    end
   end
 end

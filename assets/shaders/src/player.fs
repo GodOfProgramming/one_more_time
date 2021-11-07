@@ -1,5 +1,4 @@
 #import "version_directive.glsl"
-//
 
 in vec2 io_uv;
 

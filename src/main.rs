@@ -9,13 +9,17 @@ use input::{
   keyboard::{Key, KeyAction},
   InputCheck, InputDevices,
 };
-use log::{debug, info};
+use log::info;
 use std::path::Path;
 use util::{FpsManager, Settings};
 use view::window::{Window, WindowSettings};
 
 static SETTINGS_FILE: &str = "config/settings.toml";
 const LOG_LIMIT: usize = 5;
+
+fn foo(f: Box<dyn FnOnce(String)>) {
+  f(String::new());
+}
 
 fn main() {
   let logs = util::read_log_dir();
