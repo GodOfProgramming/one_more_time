@@ -1,0 +1,12 @@
+{
+  "square": {
+    "on_construct": "construct",
+    "on_update": "update",
+    "shader": "exp.test.random.colors",
+    "model": "exp.test.random.sprite_square",
+    "script": "exp.game.square",
+    "draw_description": {
+      "wireframe": false
+    }
+  }
+}
