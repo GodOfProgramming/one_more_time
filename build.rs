@@ -1,8 +1,20 @@
 fn main() {
+  std::fs::remove_file("out.txt");
   shaders::preprocess_shaders();
 }
 
+fn log(msg: String) {
+  use std::io::Write;
+  std::fs::OpenOptions::new()
+    .create(true)
+    .append(true)
+    .open("out.txt")
+    .unwrap()
+    .write(msg.as_bytes());
+}
+
 mod shaders {
+  use super::*;
   use lazy_static::lazy_static;
   use maplit::btreeset;
   use regex::Regex;
@@ -23,9 +35,87 @@ mod shaders {
       Regex::new(r##"^\s*#\s*import\s*"(?P<file>[\-\w.]+)"\s*$"##).unwrap();
   }
 
+  #[derive(Debug)]
   struct ShaderSource {
-    src: String,
-    imports: BTreeSet<String>,
+    out: PathBuf,
+    sources: BTreeSet<PathBuf>,
+  }
+
+  impl ShaderSource {
+    /// Loads a shader and all its imports recursively
+    /// Requires that 'src' points to the complete path
+    fn load(source: &Path, output: &Path) -> Self {
+      let mut source_dir = source.to_path_buf();
+      source_dir.pop();
+      match fs::read_to_string(source) {
+        Ok(source_code) => {
+          let source_code = fs::read_to_string(source).unwrap();
+          let mut sources = BTreeSet::new();
+
+          Self::determine_imports(&source_dir, source_code, &mut sources);
+
+          sources.insert(source.to_path_buf());
+
+          Self {
+            out: output.to_path_buf(),
+            sources,
+          }
+        }
+        Err(e) => {
+          panic!("could not find '{}'", source.display());
+        }
+      }
+    }
+
+    fn needs_update(&self) -> bool {
+      if let Ok(out_metadata) = self.out.metadata() {
+        let out_time = out_metadata.modified().unwrap();
+        let mut needs_update = false;
+
+        for source in &self.sources {
+          match source.metadata() {
+            Ok(source_metadata) => {
+              let source_time = source_metadata.modified().unwrap();
+              needs_update = source_time > out_time;
+            }
+            Err(e) => {
+              panic!(
+                "unable to find source file '{}', while checking for updates in '{}'",
+                source.display(),
+                self.out.display()
+              );
+            }
+          }
+
+          if needs_update {
+            break;
+          }
+        }
+
+        needs_update
+      } else {
+        true
+      }
+    }
+
+    fn determine_imports(source_dir: &PathBuf, source: String, imports: &mut BTreeSet<PathBuf>) {
+      for line in source.lines() {
+        if let Some(caps) = IMPORT_REGEX.captures(line) {
+          let import = source_dir.join(&caps["file"]);
+          let mut import_dir = import.clone();
+          import_dir.pop();
+          match fs::read_to_string(&import) {
+            Ok(import_source) => {
+              imports.insert(import);
+              Self::determine_imports(&import_dir, import_source, imports);
+            }
+            Err(e) => {
+              panic!("could not find '{}'", import.display());
+            }
+          }
+        }
+      }
+    }
   }
 
   fn push_line(line: String, lines: &mut Vec<String>, _output: &Path) {
@@ -95,13 +185,15 @@ mod shaders {
   }
 
   fn write_file(code: String, lines: &mut Vec<String>, output: &Path) {
+    let mut base_dir = output.to_path_buf();
+    base_dir.pop();
+    fs::create_dir_all(&base_dir).unwrap();
+
     lines.push(code);
     fs::write(output, lines.join("\n")).unwrap();
   }
 
   pub fn preprocess_shaders() {
-    fs::create_dir_all(&*OUT_DIR).unwrap();
-
     for entry in WalkDir::new(&*CONFIG) {
       let entry = entry.unwrap();
       if entry.file_type().is_file() {
@@ -114,21 +206,15 @@ mod shaders {
           for (k, v) in table {
             if SUPPORTED_SHADERS.contains(k.as_str()) {
               let filename = v.as_str().unwrap();
-              let src_path = SRC_DIR.join(filename);
-              let out_path = OUT_DIR.join(filename);
+              let src_path = SRC_DIR.join(Path::new(filename));
+              let out_path = OUT_DIR.join(Path::new(filename));
 
-              let src_meta = src_path.metadata().unwrap();
-              let out_meta = out_path.metadata();
+              let src_path_cpy = src_path.clone();
+              let out_path_cpy = out_path.clone();
 
-              let should_forge = if let Ok(out_meta) = out_meta {
-                let src_time = src_meta.modified().unwrap();
-                let out_time = out_meta.modified().unwrap();
-                src_time > out_time
-              } else {
-                true
-              };
+              let shader = ShaderSource::load(&src_path_cpy, &out_path_cpy);
 
-              if should_forge {
+              if shader.needs_update() {
                 forge_shader(
                   &src_path,
                   &out_path,

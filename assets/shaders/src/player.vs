@@ -15,6 +15,3 @@ void main()
   io_uv       = i_uv * u_tex_ratio + u_tex_coords;
   gl_Position = u_projection * u_view * u_model * vec4(i_pos, 1.0);
 }
-
-
-// foobar
