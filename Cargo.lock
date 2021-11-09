@@ -502,6 +502,7 @@ dependencies = [
  "glfw",
  "glium",
  "imgui",
+ "lazy_static",
  "log",
  "maplit",
  "nalgebra-glm",

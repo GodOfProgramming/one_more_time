@@ -17,10 +17,6 @@ use view::window::{Window, WindowSettings};
 static SETTINGS_FILE: &str = "config/settings.toml";
 const LOG_LIMIT: usize = 5;
 
-fn foo(f: Box<dyn FnOnce(String)>) {
-  f(String::new());
-}
-
 fn main() {
   let logs = util::read_log_dir();
   let log_file = util::next_log_rotation(logs, LOG_LIMIT);

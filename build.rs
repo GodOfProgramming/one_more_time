@@ -3,6 +3,7 @@ fn main() {
 }
 
 mod shaders {
+  use lazy_static::lazy_static;
   use maplit::btreeset;
   use regex::Regex;
   use std::{
@@ -13,12 +14,25 @@ mod shaders {
   use toml::Value;
   use walkdir::WalkDir;
 
+  lazy_static! {
+    static ref SUPPORTED_SHADERS: BTreeSet<&'static str> = btreeset!["vertex", "fragment"];
+    static ref CONFIG: PathBuf = PathBuf::new().join("assets").join("cfg").join("shaders");
+    static ref SRC_DIR: PathBuf = PathBuf::new().join("assets").join("shaders").join("src");
+    static ref OUT_DIR: PathBuf = PathBuf::new().join("assets").join("shaders").join("out");
+    static ref IMPORT_REGEX: Regex =
+      Regex::new(r##"^\s*#\s*import\s*"(?P<file>[\-\w.]+)"\s*$"##).unwrap();
+  }
+
+  struct ShaderSource {
+    src: String,
+    imports: BTreeSet<String>,
+  }
+
   fn push_line(line: String, lines: &mut Vec<String>, _output: &Path) {
     lines.push(line);
   }
 
   fn forge_shader(
-    import_regex: &Regex,
     shader_path: &Path,
     output_path: &Path,
     imported_files: &mut Vec<String>,
@@ -38,7 +52,7 @@ mod shaders {
     let mut lines = Vec::new();
 
     for line in src.lines() {
-      if let Some(caps) = import_regex.captures(line) {
+      if let Some(caps) = IMPORT_REGEX.captures(line) {
         let import = base_path.join(&caps["file"]);
         let import_str = format!("{}", import.display());
 
@@ -55,7 +69,6 @@ mod shaders {
         }
 
         if !forge_shader(
-          import_regex,
           &import,
           output_path,
           imported_files,
@@ -87,17 +100,9 @@ mod shaders {
   }
 
   pub fn preprocess_shaders() {
-    let supported_shaders = btreeset!["vertex", "fragment"];
-    let config = PathBuf::new().join("assets").join("cfg").join("shaders");
+    fs::create_dir_all(&*OUT_DIR).unwrap();
 
-    let src_dir = PathBuf::new().join("assets").join("shaders").join("src");
-    let out_dir = PathBuf::new().join("assets").join("shaders").join("out");
-
-    let import_regex = Regex::new(r##"^\s*#\s*import\s*"(?P<file>[\-\w.]+)"\s*$"##).unwrap();
-
-    fs::create_dir_all(&out_dir).unwrap();
-
-    for entry in WalkDir::new(config) {
+    for entry in WalkDir::new(&*CONFIG) {
       let entry = entry.unwrap();
       if entry.file_type().is_file() {
         let data = fs::read_to_string(entry.path()).unwrap();
@@ -107,10 +112,10 @@ mod shaders {
         for (_k, v) in table {
           let table = v.as_table().unwrap();
           for (k, v) in table {
-            if supported_shaders.contains(k.as_str()) {
+            if SUPPORTED_SHADERS.contains(k.as_str()) {
               let filename = v.as_str().unwrap();
-              let src_path = src_dir.join(filename);
-              let out_path = out_dir.join(filename);
+              let src_path = SRC_DIR.join(filename);
+              let out_path = OUT_DIR.join(filename);
 
               let src_meta = src_path.metadata().unwrap();
               let out_meta = out_path.metadata();
@@ -125,7 +130,6 @@ mod shaders {
 
               if should_forge {
                 forge_shader(
-                  &import_regex,
                   &src_path,
                   &out_path,
                   &mut Vec::new(),
