@@ -4,6 +4,7 @@ mod math;
 mod util;
 mod view;
 
+use gfx::{ShaderRepository, ShaderSources};
 use glium::Surface;
 use input::{
   keyboard::{Key, KeyAction},
@@ -39,11 +40,16 @@ fn main() {
 
   let gl_context = unsafe { glium::backend::Context::new(draw_interface, true, behavior).unwrap() };
 
+  let mut shaders = ShaderSources::new();
+  shaders.load_all();
+
+  let shader_repository = shaders.load_repository(gl_context.clone());
+
+  let mut input_devices = InputDevices::default();
+
   let mut fps_manager = FpsManager::new(settings.graphics.fps.into());
 
   info!("target fps = {}", fps_manager.target());
-
-  let mut input_devices = InputDevices::default();
 
   window.show();
 

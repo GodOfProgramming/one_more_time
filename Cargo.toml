@@ -12,6 +12,7 @@ glium = "0.30.2"
 imgui = "0.8.0"
 
 nalgebra-glm = "0.15.0"
+geo = "0.18.0"
 
 toml = "0.5.8"
 
@@ -29,9 +30,6 @@ chlorine = "1.0.9"
 
 lazy_static = "1.4.0"
 
-[build-dependencies]
-toml = "0.5.8"
 regex = "1.5.4"
 walkdir = "2.3.2"
 maplit = "1.0.2"
-lazy_static = "1.4.0"
