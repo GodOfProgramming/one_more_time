@@ -119,8 +119,8 @@ impl ShaderSources {
       let table = table.as_table().unwrap();
 
       for (local_shader_id, shaders) in table {
-        let shaders = shaders.as_table().unwrap();
         let new_id = id.extend(&local_shader_id);
+        let shaders = shaders.as_table().unwrap();
 
         let mut sources = PotentialProgramSources::default();
 
