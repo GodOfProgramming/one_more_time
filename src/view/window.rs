@@ -1,5 +1,6 @@
 use crate::input::{
   keyboard::{Key, KeyAction, KeyEvent},
+  mouse::{Button, ButtonAction, MouseButtonEvent},
   InputDevices, InputProcessor,
 };
 use crate::math::*;
@@ -7,6 +8,8 @@ use crate::util::Settings;
 use glfw::{Context, Glfw, OpenGlProfileHint, Window as GlfwWindow, WindowEvent, WindowHint};
 use glium::backend::Backend;
 use glm::U32Vec2;
+use imgui_glium_renderer::imgui;
+use log::debug;
 use std::cell::RefCell;
 use std::fmt::{Display, Error, Formatter};
 use std::rc::Rc;
@@ -105,65 +108,94 @@ impl Window {
     )
   }
 
+  pub fn setup_imgui(&self, imgui_ctx: &mut imgui::Context) {
+    let mut io = imgui_ctx.io_mut();
+
+    io[imgui::Key::Tab] = Key::Tab as _;
+    io[imgui::Key::LeftArrow] = Key::LeftArrow as _;
+    io[imgui::Key::RightArrow] = Key::RightArrow as _;
+    io[imgui::Key::UpArrow] = Key::UpArrow as _;
+    io[imgui::Key::DownArrow] = Key::DownArrow as _;
+    io[imgui::Key::PageUp] = Key::PageUp as _;
+    io[imgui::Key::PageDown] = Key::PageDown as _;
+    io[imgui::Key::Home] = Key::Home as _;
+    io[imgui::Key::End] = Key::End as _;
+    io[imgui::Key::Insert] = Key::Insert as _;
+    io[imgui::Key::Delete] = Key::Delete as _;
+    io[imgui::Key::Backspace] = Key::Backspace as _;
+    io[imgui::Key::Space] = Key::Space as _;
+    io[imgui::Key::Enter] = Key::Enter as _;
+    io[imgui::Key::Escape] = Key::Escape as _;
+    io[imgui::Key::KeyPadEnter] = Key::KeyPadEnter as _;
+    io[imgui::Key::A] = Key::A as _;
+    io[imgui::Key::C] = Key::C as _;
+    io[imgui::Key::V] = Key::V as _;
+    io[imgui::Key::X] = Key::X as _;
+    io[imgui::Key::Y] = Key::Y as _;
+    io[imgui::Key::Z] = Key::Z as _;
+  }
+
   pub fn show(&self) {
     self.window_handle.borrow_mut().show();
   }
 
-  pub fn poll_events(&self, input_devices: &mut InputDevices) {
+  pub fn poll_events(&self, input_devices: &mut InputDevices, imgui_ctx: &mut imgui::Context) {
+    let mut io = imgui_ctx.io_mut();
     self.glfw_handle.borrow_mut().poll_events();
     for (_, event) in glfw::flush_messages(&self.event_stream) {
       match event {
         WindowEvent::Key(key, _scancode, action, _modifiers) => {
-          input_devices.process(Self::convert_key_event(key, action))
+          let key_event = KeyEvent::new(key.into(), action.into());
+          input_devices.process(key_event);
+
+          match key_event.action {
+            KeyAction::Press => {
+              io.keys_down[key_event.key as usize] = true;
+            }
+            KeyAction::Release => {
+              io.keys_down[key_event.key as usize] = false;
+            }
+            _ => {}
+          }
+
+          match key_event.key {
+            Key::LeftShift | Key::RightShift => io.key_shift = key_event.action == KeyAction::Press,
+            Key::LeftCtrl | Key::RightCtrl => io.key_ctrl = key_event.action == KeyAction::Press,
+            Key::LeftAlt | Key::RightAlt => io.key_alt = key_event.action == KeyAction::Press,
+            Key::LeftSuper | Key::RightSuper => io.key_super = key_event.action == KeyAction::Press,
+            _ => {}
+          }
         }
-        WindowEvent::MouseButton(_mouse_button, _action, _modifiers) => {}
+        WindowEvent::Char(c) => {
+          io.add_input_character(c);
+        }
+        WindowEvent::MouseButton(mouse_button, action, _modifiers) => {
+          let mouse_event = MouseButtonEvent::new(mouse_button.into(), action.into());
+          input_devices.process(mouse_event);
+
+          match mouse_event.action {
+            ButtonAction::Press => {
+              io.mouse_down[mouse_event.button as usize] = true;
+            }
+            ButtonAction::Release => {
+              io.mouse_down[mouse_event.button as usize] = false;
+            }
+            _ => {}
+          }
+        }
+        WindowEvent::Scroll(x, y) => {
+          io.mouse_wheel = y as f32;
+          io.mouse_wheel_h = x as f32;
+        }
+        WindowEvent::CursorPos(x, y) => {
+          io.mouse_pos = [x as f32, y as f32];
+        }
+        WindowEvent::FramebufferSize(x, y) => {
+          io.display_size = [x as f32, y as f32];
+        }
         _ => (),
       }
     }
-  }
-
-  fn convert_key_event(key: glfw::Key, action: glfw::Action) -> KeyEvent {
-    let key = match key {
-      glfw::Key::A => Key::A,
-      glfw::Key::B => Key::B,
-      glfw::Key::C => Key::C,
-      glfw::Key::D => Key::D,
-      glfw::Key::E => Key::E,
-      glfw::Key::F => Key::F,
-      glfw::Key::G => Key::G,
-      glfw::Key::H => Key::H,
-      glfw::Key::I => Key::I,
-      glfw::Key::J => Key::J,
-      glfw::Key::K => Key::K,
-      glfw::Key::L => Key::L,
-      glfw::Key::M => Key::M,
-      glfw::Key::N => Key::N,
-      glfw::Key::O => Key::O,
-      glfw::Key::P => Key::P,
-      glfw::Key::Q => Key::Q,
-      glfw::Key::R => Key::R,
-      glfw::Key::S => Key::S,
-      glfw::Key::T => Key::T,
-      glfw::Key::U => Key::U,
-      glfw::Key::V => Key::V,
-      glfw::Key::W => Key::W,
-      glfw::Key::X => Key::X,
-      glfw::Key::Y => Key::Y,
-      glfw::Key::Z => Key::Z,
-
-      glfw::Key::Escape => Key::Esc,
-      glfw::Key::Tab => Key::Tab,
-
-      _ => Key::Unsupported,
-    };
-
-    let action = match action {
-      glfw::Action::Press => KeyAction::Press,
-      glfw::Action::Release => KeyAction::Release,
-      _ => KeyAction::None,
-    };
-
-    KeyEvent { key, action }
   }
 }
 

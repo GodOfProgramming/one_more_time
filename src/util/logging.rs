@@ -1,7 +1,7 @@
 use fern::InitError;
 use glium::debug::{MessageType, Severity, Source};
 use log::LevelFilter;
-use log::{debug, error, info, warn};
+use log::{debug, error, info, trace, warn};
 use std::{
   ffi::OsString,
   fs::{self, OpenOptions},
@@ -89,7 +89,7 @@ pub fn setup_logger(rotation_limit: usize) -> Result<(), InitError> {
         msg
       ))
     })
-    .level(LevelFilter::Info)
+    .level(LevelFilter::Debug)
     .chain(std::io::stdout())
     .chain(
       OpenOptions::new()
@@ -112,9 +112,12 @@ pub fn gl_error_handler(
 ) {
   match severity {
     glium::debug::Severity::Notification => {
-      debug!(
+      trace!(
         "OpenGL Notification: source = {:?}, message type = {:?}, handled = {:?} -> {}",
-        source, message_type, handled, message
+        source,
+        message_type,
+        handled,
+        message
       );
     }
     glium::debug::Severity::Low => {

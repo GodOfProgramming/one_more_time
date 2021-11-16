@@ -51,6 +51,8 @@ fn main() {
 
   let mut input_devices = InputDevices::default();
 
+  window.setup_imgui(&mut imgui_ctx);
+
   let mut fps_manager = FpsManager::new(settings.graphics.fps.into());
 
   info!("target fps = {}", fps_manager.target());
@@ -63,11 +65,11 @@ fn main() {
 
     fps_manager.begin();
 
-    window.poll_events(&mut input_devices);
+    window.poll_events(&mut input_devices, &mut imgui_ctx);
 
     // pre prossess game logic
 
-    if input_devices.check(Key::Esc) == KeyAction::Press {
+    if input_devices.check(Key::Escape) == KeyAction::Press {
       break 'main;
     }
 
