@@ -42,13 +42,6 @@ impl TextureSources {
 
 struct ImageConverter {}
 
-impl Texture2dDataSource<'_> for ImageConverter {
-  type Data = u8;
-  fn into_raw(self) -> RawImage2d<'a, <Self as Texture2dDataSource<'a>>::Data> {
-    RawImage2d::from_raw_rgb(data: Vec<T>, dimensions: (u32, u32))
-  }
-}
-
 pub struct TextureRepository {
   textures: BTreeMap<DirID, TextureAny>,
 }

@@ -6,12 +6,13 @@ mod view;
 
 use gfx::{ShaderRepository, ShaderSources};
 use glium::Surface;
+use imgui_glium_renderer::imgui;
 use input::{
   keyboard::{Key, KeyAction},
   InputCheck, InputDevices,
 };
 use log::info;
-use std::path::Path;
+use std::{ops::Deref, path::Path};
 use util::{FpsManager, Settings};
 use view::window::{Window, WindowSettings};
 
@@ -19,11 +20,7 @@ static SETTINGS_FILE: &str = "config/settings.toml";
 const LOG_LIMIT: usize = 5;
 
 fn main() {
-  let logs = util::read_log_dir();
-  let log_file = util::next_log_rotation(logs, LOG_LIMIT);
-
-  println!("logging to {:?}", log_file);
-  util::setup_logger(&log_file).unwrap();
+  util::setup_logger(LOG_LIMIT).unwrap();
 
   let settings_file = Path::new(SETTINGS_FILE);
 
@@ -43,7 +40,14 @@ fn main() {
   let mut shaders = ShaderSources::new();
   shaders.load_all();
 
-  let shader_repository = shaders.load_repository(gl_context.clone());
+  let shader_repository = shaders.load_repository(&gl_context);
+
+  let mut imgui_ctx = imgui_glium_renderer::imgui::Context::create();
+  imgui_ctx.set_ini_filename(None);
+  imgui_ctx.set_log_filename(None);
+
+  let mut imgui_render =
+    imgui_glium_renderer::Renderer::init(&mut imgui_ctx, &gl_context.clone()).unwrap();
 
   let mut input_devices = InputDevices::default();
 
@@ -56,6 +60,7 @@ fn main() {
   let mut i: f32 = 0.0;
   'main: loop {
     // frame setup
+
     fps_manager.begin();
 
     window.poll_events(&mut input_devices);
@@ -67,6 +72,7 @@ fn main() {
     }
 
     // game logic
+
     i += 0.1;
 
     // post process game logic
@@ -84,7 +90,34 @@ fn main() {
 
     frame.clear_color(i.sin(), 0.30, 1.0 - i.sin(), 1.0);
 
+    imgui_ctx.io_mut().display_size = [
+      settings.display.width as f32,
+      settings.display.height as f32,
+    ];
+
+    let ui: imgui::Ui<'_> = imgui_ctx.frame();
+
+    imgui::Window::new("Hello world")
+      .size([300.0, 100.0], imgui::Condition::FirstUseEver)
+      .build(&ui, || {
+        ui.text("Hello world!");
+        ui.text("こんにちは世界！");
+        ui.text("This...is...imgui-rs!");
+        ui.separator();
+        let mouse_pos = ui.io().mouse_pos;
+        ui.text(format!(
+          "Mouse Position: ({:.1},{:.1})",
+          mouse_pos[0], mouse_pos[1]
+        ));
+      });
+
+    ui.show_demo_window(&mut true);
+
     // finalize
+
+    let draw_data = ui.render();
+
+    imgui_render.render(&mut frame, draw_data).unwrap();
 
     frame.finish().unwrap();
 

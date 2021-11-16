@@ -164,7 +164,7 @@ impl ShaderSources {
     });
   }
 
-  pub fn load_repository(self, ctx: std::rc::Rc<glium::backend::Context>) -> ShaderRepository {
+  pub fn load_repository(self, ctx: &std::rc::Rc<glium::backend::Context>) -> ShaderRepository {
     let mut repo = ShaderRepository::default();
 
     for (id, sources) in self.sources {

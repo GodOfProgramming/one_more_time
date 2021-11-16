@@ -567,7 +567,7 @@ dependencies = [
  "glfw",
  "glium",
  "image",
- "imgui",
+ "imgui-glium-renderer",
  "lazy_static",
  "log",
  "maplit",
@@ -864,6 +864,16 @@ dependencies = [
  "bitflags",
  "imgui-sys",
  "parking_lot",
+]
+
+[[package]]
+name = "imgui-glium-renderer"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc90d919aaa1fb05e4c58f0c3dad4a65f9233c2026cf8a3c549f721f3092da2c"
+dependencies = [
+ "glium",
+ "imgui",
 ]
 
 [[package]]
