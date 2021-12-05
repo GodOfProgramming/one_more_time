@@ -109,4 +109,18 @@ mod tests {
     assert!(plain_text2.text.is_some());
     assert_eq!(plain_text2.text.as_ref().unwrap(), &String::from(" text"));
   }
+
+  #[test]
+  fn invalid_xml_returns_err() {
+    const BAD_XML1: &str = "";
+    const BAD_XML2: &str = "</no_start>";
+    const BAD_XML3: &str = "</";
+    const BAD_XML4: &str = ">";
+
+    let xml = vec![BAD_XML1, BAD_XML2, BAD_XML3, BAD_XML4];
+
+    for data in xml {
+      assert!(XmlNode::parse(data).is_err());
+    }
+  }
 }
