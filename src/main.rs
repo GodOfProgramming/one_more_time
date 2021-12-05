@@ -1,6 +1,7 @@
 mod gfx;
 mod input;
 mod math;
+mod ui;
 mod util;
 mod view;
 

@@ -1,4 +1,4 @@
-use crate::util::{self, DirID};
+use crate::util::{self, dir, DirID};
 use glium::program::{Program, ProgramCreationError, ShaderType};
 use lazy_static::lazy_static;
 use log::{error, info, warn};
@@ -111,7 +111,7 @@ impl ShaderSources {
 
   pub fn load_all(&mut self) {
     let config = PathBuf::new().join("assets").join("cfg").join("shaders");
-    util::iterate_dir_with_id(&config, |path, id| {
+    util::dir::iterate_dir_with_id(&config, |path, id| {
       let data = fs::read_to_string(path)
         .map_err(|e| format!("cannot find {}, err = {}", path.display(), e))
         .unwrap();

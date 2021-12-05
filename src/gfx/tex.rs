@@ -1,4 +1,4 @@
-use crate::util::{self, DirID};
+use crate::util::{self, dir, DirID};
 use glium::texture::{
   self, RawImage2d, ResidentTexture, Texture2d, Texture2dDataSource, TextureAny, TextureHandle,
   TextureKind,
@@ -19,7 +19,7 @@ pub struct TextureSources {
 impl TextureSources {
   pub fn load_all(&mut self) {
     let config = PathBuf::new().join("assets").join("cfg").join("textures");
-    util::iterate_dir_with_id(&config, |path, id| {
+    util::dir::iterate_dir_with_id(&config, |path, id| {
       let data = fs::read_to_string(path)
         .map_err(|e| format!("cannot find {}, err = {}", path.display(), e))
         .unwrap();
