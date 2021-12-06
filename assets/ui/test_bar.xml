@@ -1,0 +1,5 @@
+<main-menu-bar>
+  <menu name="Debug">
+    <menu-item name="Demo"></menu-item>
+  </menu>
+</main-menu-bar>

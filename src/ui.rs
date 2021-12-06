@@ -14,6 +14,7 @@ pub mod components {
 
 use crate::util::{Settings, XmlNode};
 use imgui_glium_renderer::imgui::Ui;
+use lazy_static::lazy_static;
 use log::warn;
 use maplit::hashmap;
 use std::collections::HashMap;
@@ -25,7 +26,7 @@ macro_rules! type_map {
         $(
           $feat.0 => $feat.1,
         )*
-      };
+      }
     };
   }
 
@@ -124,7 +125,13 @@ impl UiElement for UiRoot {
 impl UiElementParent for UiRoot {
   fn valid_children() -> SubElementMap {
     use types::{MAIN_MENU_BAR, WINDOW};
-    type_map![WINDOW, MAIN_MENU_BAR]
+
+    lazy_static! {
+      static ref MAP: SubElementMap = type_map![WINDOW, MAIN_MENU_BAR];
+    }
+
+    // TODO why is MAP not apparently a SubElementMap
+    MAP.clone()
   }
 }
 

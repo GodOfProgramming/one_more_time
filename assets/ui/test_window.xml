@@ -1,0 +1,5 @@
+<window decorated="false" transparent="true" title="Test">
+  <textbox>example 1</textbox>
+  <textbox>example 2</textbox>
+  <textbox>example 3</textbox>
+</window>

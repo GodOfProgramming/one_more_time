@@ -14,13 +14,33 @@ use input::{
 };
 use log::info;
 use std::{ops::Deref, path::Path};
-use util::{FpsManager, Settings};
+use ui::{UiElement, UiRoot};
+use util::{FpsManager, Settings, XmlNode};
 use view::window::{Window, WindowSettings};
 
 static SETTINGS_FILE: &str = "config/settings.toml";
 const LOG_LIMIT: usize = 5;
 
 fn main() {
+  /////////////////////////
+  let test_window_xml = std::fs::read_to_string("assets/ui/test_window.xml").unwrap();
+  let test_bar_xml = std::fs::read_to_string("assets/ui/test_bar.xml").unwrap();
+
+  let test_window_nodes = XmlNode::parse(&test_window_xml).unwrap();
+  let test_bar_nodes = XmlNode::parse(&test_bar_xml).unwrap();
+
+  let mut elements = Vec::new();
+
+  for node in test_window_nodes {
+    elements.push(UiRoot::from(node));
+  }
+
+  for node in test_bar_nodes {
+    elements.push(UiRoot::from(node));
+  }
+
+  /////////////////////////
+
   util::setup_logger(LOG_LIMIT).unwrap();
 
   let settings_file = Path::new(SETTINGS_FILE);
@@ -113,6 +133,10 @@ fn main() {
           mouse_pos[0], mouse_pos[1]
         ));
       });
+
+    for element in &mut elements {
+      element.update(&ui, &settings);
+    }
 
     ui.show_demo_window(&mut true);
 
