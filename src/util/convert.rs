@@ -1,6 +1,6 @@
 use crate::input::keyboard::Key;
 
-type ConversionResult<T> = Result<T, ()>;
+type ConversionResult<T> = Result<T, String>;
 
 pub mod string {
   use super::*;
@@ -76,8 +76,7 @@ pub mod string {
     skip_whitespace(buff, &mut index);
 
     if !expect(buff, &mut index, '(') {
-      warn!("expected '('");
-      return Err(());
+      return Err(String::from("expected '('"));
     }
 
     skip_whitespace(buff, &mut index);
@@ -85,15 +84,13 @@ pub mod string {
     if let Ok(x) = parse_num(buff, &mut index) {
       vec.x = x;
     } else {
-      warn!("expected number");
-      return Err(());
+      return Err(String::from("expected number"));
     }
 
     skip_whitespace(buff, &mut index);
 
     if !expect(buff, &mut index, ',') {
-      warn!("expected ','");
-      return Err(());
+      return Err(String::from("expected ','"));
     }
 
     skip_whitespace(buff, &mut index);
@@ -101,15 +98,13 @@ pub mod string {
     if let Ok(y) = parse_num(buff, &mut index) {
       vec.y = y;
     } else {
-      warn!("expected number");
-      return Err(());
+      return Err(String::from("expected number"));
     }
 
     skip_whitespace(buff, &mut index);
 
     if !expect(buff, &mut index, ')') {
-      warn!("expected ')'");
-      return Err(());
+      return Err(String::from("expected ')'"));
     }
 
     Ok(vec)
@@ -162,7 +157,7 @@ pub mod value {
     if let Value::Integer(v) = value {
       Ok(*v as u8)
     } else {
-      Err(())
+      Err(String::from("value was not an integer (u8)"))
     }
   }
 
@@ -170,7 +165,7 @@ pub mod value {
     if let Value::Integer(v) = value {
       Ok(*v as u32)
     } else {
-      Err(())
+      Err(String::from("value was not an integer (u32)"))
     }
   }
 
@@ -178,7 +173,7 @@ pub mod value {
     if let Value::Float(v) = value {
       Ok(*v as f32)
     } else {
-      Err(())
+      Err(String::from("value was not a float (f32)"))
     }
   }
 
@@ -186,7 +181,7 @@ pub mod value {
     if let Value::String(v) = value {
       Ok(v.clone())
     } else {
-      Err(())
+      Err(String::from("value was not a string"))
     }
   }
 
@@ -198,7 +193,7 @@ pub mod value {
       }
       Ok(storage)
     } else {
-      Err(())
+      Err(String::from("value was not an array of strings"))
     }
   }
 
@@ -236,7 +231,7 @@ pub mod value {
       "down" => Key::DownArrow,
       "left" => Key::LeftArrow,
       "right" => Key::RightArrow,
-      _ => return Err(()),
+      _ => return Err(format!("key '{}' does not have string mapping", value)),
     })
   }
 }

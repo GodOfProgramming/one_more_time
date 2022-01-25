@@ -1,6 +1,5 @@
 pub mod convert;
 pub mod dir;
-mod dylib;
 mod fps;
 mod logging;
 mod math;
@@ -10,7 +9,7 @@ mod xml;
 pub use self::{
   dir::DirID,
   fps::FpsManager,
-  logging::{gl_error_handler, setup_logger},
+  logging::{gl_error_handler, ChildLogger, Logger},
   settings::Settings,
   xml::XmlNode,
 };
