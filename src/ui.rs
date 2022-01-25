@@ -2,6 +2,7 @@ pub mod main_menu_bar;
 pub mod menu;
 pub mod menu_item;
 pub mod text_box;
+pub mod ui_manager;
 pub mod window;
 
 pub mod components {
@@ -18,6 +19,7 @@ use lazy_static::lazy_static;
 use log::warn;
 use maplit::hashmap;
 use std::collections::HashMap;
+pub use ui_manager::UiManager;
 
 #[macro_export]
 macro_rules! type_map {
@@ -72,7 +74,7 @@ pub trait UiElement {
 }
 
 pub trait UiElementParent {
-  fn valid_children() -> SubElementMap;
+  fn valid_children() -> &'static SubElementMap;
 }
 
 struct EmptyUi;
@@ -123,15 +125,14 @@ impl UiElement for UiRoot {
 }
 
 impl UiElementParent for UiRoot {
-  fn valid_children() -> SubElementMap {
+  fn valid_children() -> &'static SubElementMap {
     use types::{MAIN_MENU_BAR, WINDOW};
 
     lazy_static! {
       static ref MAP: SubElementMap = type_map![WINDOW, MAIN_MENU_BAR];
     }
 
-    // TODO why is MAP not apparently a SubElementMap
-    MAP.clone()
+    &MAP
   }
 }
 

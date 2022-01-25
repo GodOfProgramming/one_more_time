@@ -4,6 +4,7 @@ use crate::{
   util::{convert::string, Settings, XmlNode},
 };
 use imgui_glium_renderer::imgui::{ImStr, Ui};
+use lazy_static::lazy_static;
 use maplit::hashmap;
 use std::ffi::CString;
 
@@ -41,8 +42,12 @@ impl UiElement for Menu {
 }
 
 impl UiElementParent for Menu {
-  fn valid_children() -> SubElementMap {
+  fn valid_children() -> &'static SubElementMap {
     use types::MENU_ITEM;
-    type_map![MENU_ITEM]
+    lazy_static! {
+      static ref MAP: SubElementMap = type_map![MENU_ITEM];
+    }
+
+    &MAP
   }
 }

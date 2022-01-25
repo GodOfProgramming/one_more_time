@@ -11,7 +11,7 @@ use std::{
 use toml::Value;
 
 lazy_static! {
-  static ref SRC_DIR: PathBuf = PathBuf::new().join("assets").join("shaders").join("src");
+  static ref SRC_DIR: PathBuf = PathBuf::new().join("assets").join("shaders");
   static ref IMPORT_REGEX: Regex =
     Regex::new(r##"^\s*#\s*import\s*"(?P<file>[\-\w.]+)"\s*$"##).unwrap();
 }

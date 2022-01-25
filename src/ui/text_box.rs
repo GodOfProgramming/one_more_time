@@ -4,6 +4,7 @@ use crate::{
   util::{Settings, XmlNode},
 };
 use imgui_glium_renderer::imgui::Ui;
+use lazy_static::lazy_static;
 use maplit::hashmap;
 
 pub struct TextBox {
@@ -25,7 +26,11 @@ impl UiElement for TextBox {
 }
 
 impl UiElementParent for TextBox {
-  fn valid_children() -> SubElementMap {
-    type_map![]
+  fn valid_children() -> &'static SubElementMap {
+    lazy_static! {
+      static ref MAP: SubElementMap = type_map![];
+    }
+
+    &MAP
   }
 }

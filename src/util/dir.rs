@@ -5,6 +5,33 @@ use std::{
 };
 use walkdir::{DirEntry, WalkDir};
 
+pub struct RecursiveDirectoryIterator {
+  dirs: Vec<PathBuf>,
+}
+
+impl From<&Path> for RecursiveDirectoryIterator {
+  fn from(path: &Path) -> Self {
+    let mut dirs = Vec::new();
+
+    for result in WalkDir::new(path) {
+      let entry: DirEntry = result.unwrap();
+      if entry.file_type().is_file() {
+        dirs.push(entry.path().strip_prefix(path).unwrap().to_path_buf());
+      }
+    }
+
+    Self { dirs }
+  }
+}
+
+impl IntoIterator for RecursiveDirectoryIterator {
+  type Item = PathBuf;
+  type IntoIter = <Vec<PathBuf> as IntoIterator>::IntoIter;
+  fn into_iter(self) -> <Self as std::iter::IntoIterator>::IntoIter {
+    self.dirs.into_iter()
+  }
+}
+
 #[derive(Debug, Clone)]
 pub struct Dirs {
   root: PathBuf,

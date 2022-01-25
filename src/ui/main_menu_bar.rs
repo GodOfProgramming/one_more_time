@@ -4,6 +4,7 @@ use crate::{
   util::{Settings, XmlNode},
 };
 use imgui_glium_renderer::imgui::Ui;
+use lazy_static::lazy_static;
 use maplit::hashmap;
 
 pub struct MainMenuBar {
@@ -29,8 +30,12 @@ impl UiElement for MainMenuBar {
 }
 
 impl UiElementParent for MainMenuBar {
-  fn valid_children() -> SubElementMap {
+  fn valid_children() -> &'static SubElementMap {
     use types::MENU;
-    type_map![MENU]
+    lazy_static! {
+      static ref MAP: SubElementMap = type_map![MENU];
+    }
+
+    &MAP
   }
 }
