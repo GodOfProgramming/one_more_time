@@ -7,47 +7,70 @@ mod util;
 mod view;
 
 use game::App;
+use mlua::{prelude::*, StdLib, UserData, UserDataFields};
+use std::cell::RefCell;
+use std::rc::Rc;
+use util::MainLogger;
 
-fn main() {
-  let platform = v8::new_default_platform(0, false).make_shared();
-  v8::V8::initialize_platform(platform);
-  v8::V8::initialize();
+struct Test {
+  pub id: i32,
+}
 
-  let isolate = &mut v8::Isolate::new(Default::default());
+impl Test {
+  pub fn test(&self) {
+    println!("id = {}", self.id);
+  }
+}
 
-  let handle_scope = &mut v8::HandleScope::new(isolate);
-  let context = v8::Context::new(handle_scope);
-  let scope = &mut v8::ContextScope::new(handle_scope, context);
+struct LuaObj<T>(Rc<RefCell<T>>);
 
-  fn foo(
-    a: &mut v8::HandleScope<'_>,
-    b: v8::FunctionCallbackArguments<'_>,
-    mut c: v8::ReturnValue<'_>,
-  ) {
-    let s = b.get(0);
-    println!("{}", s.to_rust_string_lossy(a));
-    let v = v8::Integer::new(a, b.length());
-    let v: v8::Local<v8::Value> = v8::Local::from(v);
-    c.set(v);
+impl LuaObj<Test> {
+  pub fn new(id: i32) -> Self {
+    Self(Rc::new(RefCell::new(Test { id })))
   }
 
-  let global = context.global(scope);
+  pub fn id(&self) -> i32 {
+    self.0.borrow().id
+  }
 
-  let name: v8::Local<v8::Value> = v8::Local::from(v8::String::new(scope, "foo").unwrap());
-  let function: v8::Local<v8::Value> = v8::Local::from(v8::Function::new(scope, foo).unwrap());
-  global.set(scope, name, function);
+  pub fn set_id(&mut self, id: i32) {
+    self.0.borrow_mut().id = id;
+  }
+}
 
-  let code = v8::String::new(scope, "foo('bar');").unwrap();
-  println!("javascript code: {}", code.to_rust_string_lossy(scope));
+impl Clone for LuaObj<Test> {
+  fn clone(&self) -> Self {
+    Self(self.0.clone())
+  }
+}
 
-  let script = v8::Script::compile(scope, code, None).unwrap();
-  let result = script.run(scope).unwrap();
-  let result = result.to_string(scope).unwrap();
-  println!("result: {}", result.to_rust_string_lossy(scope));
+impl UserData for LuaObj<Test> {
+  fn add_fields<'lua, F: UserDataFields<'lua, Self>>(fields: &mut F) {
+    fields.add_field_method_get("id", |_, this| Ok(this.id()));
+    fields.add_field_method_set("id", |_, this, val: i32| {
+      this.set_id(val);
+      Ok(())
+    });
+  }
+}
 
-  std::process::exit(0);
+fn main() {
+  let lua: Lua = Lua::new();
 
-  // let mut app = App::new();
+  let tbl = lua.create_table().unwrap();
+  let test = LuaObj::<Test>::new(1);
+  let ud = lua.create_userdata(test.clone()).unwrap();
+  tbl.set("data", ud).unwrap();
+  lua.globals().set("gbl", tbl).unwrap();
 
-  // app.run();
+  lua
+    .load("print(gbl.data.id); gbl.data.id = 2;")
+    .exec()
+    .unwrap();
+
+  println!("id = {}", test.id());
+
+  let mut app = App::new();
+
+  app.run();
 }

@@ -1,33 +1,41 @@
 use super::UiRoot;
-use crate::util::XmlNode;
-use std::collections::BTreeMap;
+use crate::{
+  ui::UiElement,
+  util::{DirID, Settings, XmlNode},
+};
+use imgui_glium_renderer::imgui::Ui;
+use std::{collections::BTreeMap, path::PathBuf};
 
 #[derive(Default)]
 pub struct UiManager {
-  elements: BTreeMap<String, UiRoot>,
+  ui: BTreeMap<DirID, UiRoot>,
 }
 
 impl UiManager {
-  fn new<I>(iter: I) -> Self
+  pub fn new<I>(iter: I) -> Self
   where
-    I: Iterator,
-    I::Item: ToString,
+    I: Iterator<Item = PathBuf>,
   {
     let mut manager = Self::default();
 
-    // ? why is storing entry.to_string() not allowed
     for entry in iter {
-      if let Ok(xml) = std::fs::read_to_string(entry.to_string()) {
-        if let Ok(nodes) = XmlNode::parse(&xml) {
-          for node in nodes {
-            manager
-              .elements
-              .insert(entry.to_string(), UiRoot::from(node));
+      if let Ok(xml) = std::fs::read_to_string(&entry) {
+        if let Ok(mut nodes) = XmlNode::parse(&xml) {
+          if let Some(node) = nodes.drain(..).next() {
+            manager.ui.insert(DirID::from(entry), UiRoot::from(node));
+          } else {
+            // todo log here
           }
         }
       }
     }
 
     manager
+  }
+
+  pub fn update(&mut self, ui: &Ui<'_>, settings: &Settings) {
+    for element in self.ui.values_mut() {
+      element.update(ui, settings);
+    }
   }
 }

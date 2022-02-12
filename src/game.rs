@@ -4,25 +4,28 @@ use crate::input::{
   InputCheck, InputDevices,
 };
 use crate::ui::{UiElement, UiManager, UiRoot};
-use crate::util::{self, ChildLogger, FpsManager, Logger, Settings, XmlNode};
+use crate::util::{
+  self, ChildLogger, Dirs, FpsManager, Logger, MainLogger, RecursiveDirectoryIterator, Settings,
+  SpawnableLogger, XmlNode,
+};
 use crate::view::window::{Window, WindowSettings};
 use glium::debug::DebugCallbackBehavior;
 use glium::debug::{MessageType, Severity, Source};
 use glium::Surface;
 use imgui_glium_renderer::imgui;
 use log::info;
-use std::{ops::Deref, path::Path};
+use std::{env, ops::Deref, path::Path};
 
 static SETTINGS_FILE: &str = "config/settings.toml";
 const LOG_LIMIT: usize = 5;
 
 pub struct App {
-  logger: Logger,
+  logger: MainLogger,
 }
 
 impl App {
   pub fn new() -> Self {
-    let logger = Logger::new();
+    let logger = MainLogger::new();
 
     Self { logger }
   }
@@ -46,6 +49,10 @@ impl App {
     }
 
     /////////////////////////
+
+    let cwd = env::current_dir().unwrap(); // unwrap because there's bigger problems if this doesn't work
+
+    let dirs = Dirs::new(cwd);
 
     let settings_file = Path::new(SETTINGS_FILE);
 
@@ -78,6 +85,8 @@ impl App {
     window.setup_imgui(&mut imgui_ctx);
 
     let mut fps_manager = FpsManager::new(settings.graphics.fps.into());
+
+    let mut ui_manager = UiManager::new(RecursiveDirectoryIterator::from(&dirs.assets.ui));
 
     self
       .logger
@@ -139,9 +148,7 @@ impl App {
           ));
         });
 
-      for element in &mut elements {
-        element.update(&ui, &settings);
-      }
+      ui_manager.update(&ui, &settings);
 
       ui.show_demo_window(&mut true);
 

@@ -7,10 +7,17 @@ use walkdir::{DirEntry, WalkDir};
 
 pub struct RecursiveDirectoryIterator {
   dirs: Vec<PathBuf>,
+  idx: usize,
 }
 
 impl From<&Path> for RecursiveDirectoryIterator {
   fn from(path: &Path) -> Self {
+    Self::from(&path.to_path_buf())
+  }
+}
+
+impl From<&PathBuf> for RecursiveDirectoryIterator {
+  fn from(path: &PathBuf) -> Self {
     let mut dirs = Vec::new();
 
     for result in WalkDir::new(path) {
@@ -20,58 +27,55 @@ impl From<&Path> for RecursiveDirectoryIterator {
       }
     }
 
-    Self { dirs }
+    Self { dirs, idx: 0 }
   }
 }
 
-impl IntoIterator for RecursiveDirectoryIterator {
+impl Iterator for RecursiveDirectoryIterator {
   type Item = PathBuf;
-  type IntoIter = <Vec<PathBuf> as IntoIterator>::IntoIter;
-  fn into_iter(self) -> <Self as std::iter::IntoIterator>::IntoIter {
-    self.dirs.into_iter()
+  fn next(&mut self) -> std::option::Option<<Self as Iterator>::Item> {
+    let dir = self.dirs.get(self.idx);
+    self.idx += 1;
+    dir.and_then(|p| Some(p.clone()))
   }
 }
 
 #[derive(Debug, Clone)]
 pub struct Dirs {
-  root: PathBuf,
-  assets: PathBuf,
-  config: PathBuf,
+  pub root: PathBuf,
+  pub assets: AssetsDir,
+  pub config: PathBuf,
 }
 
 impl Dirs {
   pub fn new(root: PathBuf) -> Self {
     Self {
-      assets: root.clone().join("assets"),
-      config: root.clone().join("config"),
+      assets: AssetsDir::new(root.join("assets")),
+      config: root.join("config"),
       root,
     }
   }
-
-  pub fn root(&self) -> PathBuf {
-    self.root.clone()
-  }
-
-  pub fn assets(&self) -> PathBuf {
-    self.assets.clone()
-  }
-
-  pub fn config(&self) -> PathBuf {
-    self.config.clone()
-  }
 }
 
-pub fn recursive<F: FnMut(&Path)>(start: &Path, f: &mut F) {
-  if let Ok(entries) = fs::read_dir(&start) {
-    for entry in entries.flatten() {
-      let path = entry.path();
-      if path.is_dir() {
-        recursive(&path, f);
-      } else {
-        (*f)(&path);
-      }
+#[derive(Debug, Clone)]
+pub struct AssetsDir {
+  pub cfg: PathBuf,
+  pub maps: PathBuf,
+  pub shaders: PathBuf,
+  pub textures: PathBuf,
+  pub ui: PathBuf,
+}
+
+impl AssetsDir {
+  fn new(dir: PathBuf) -> Self {
+    Self {
+      cfg: dir.join("cfg"),
+      maps: dir.join("maps"),
+      shaders: dir.join("shaders"),
+      textures: dir.join("textures"),
+      ui: dir.join("ui"),
     }
-  };
+  }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]

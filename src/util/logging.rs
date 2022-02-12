@@ -14,6 +14,18 @@ use std::{
 const LOG_DIR: &str = "logs";
 const BASE_LOG_FILENAME: &str = "game";
 
+pub trait Logger {
+  fn trace(&self, msg: String);
+  fn debug(&self, msg: String);
+  fn info(&self, msg: String);
+  fn warn(&self, msg: String);
+  fn error(&self, msg: String);
+}
+
+pub trait SpawnableLogger<C: Logger>: Logger {
+  fn spawn(&self) -> C;
+}
+
 enum LogMessage {
   Trace(String),
   Debug(String),
@@ -22,12 +34,12 @@ enum LogMessage {
   Error(String),
 }
 
-pub struct Logger {
+pub struct MainLogger {
   logging_thread: JoinHandle<()>,
   sender: std::sync::mpsc::Sender<LogMessage>,
 }
 
-impl Logger {
+impl MainLogger {
   pub fn new() -> Self {
     let (sender, receiver) = std::sync::mpsc::channel::<LogMessage>();
     let logging_thread = std::thread::spawn(move || {
@@ -48,35 +60,9 @@ impl Logger {
     }
   }
 
-  pub fn spawn(&self) -> ChildLogger {
-    ChildLogger {
-      sender: self.sender.clone(),
-    }
-  }
-
-  pub fn trace(&self, msg: String) {
-    self.sender.send(LogMessage::Trace(msg)).ok();
-  }
-
-  pub fn debug(&self, msg: String) {
-    self.sender.send(LogMessage::Debug(msg)).ok();
-  }
-
-  pub fn info(&self, msg: String) {
-    self.sender.send(LogMessage::Info(msg)).ok();
-  }
-
-  pub fn warn(&self, msg: String) {
-    self.sender.send(LogMessage::Warn(msg)).ok();
-  }
-
-  pub fn error(&self, msg: String) {
-    self.sender.send(LogMessage::Error(msg)).ok();
-  }
-
   pub fn setup_logger(rotation_limit: usize) -> Result<(), InitError> {
-    let logs = Logger::read_log_dir();
-    let filename = Logger::next_log_rotation(logs, rotation_limit);
+    let logs = MainLogger::read_log_dir();
+    let filename = MainLogger::next_log_rotation(logs, rotation_limit);
 
     println!("logging to {:?}", filename);
 
@@ -165,35 +151,67 @@ impl Logger {
   }
 }
 
+impl Logger for MainLogger {
+  fn trace(&self, msg: String) {
+    self.sender.send(LogMessage::Trace(msg)).ok();
+  }
+
+  fn debug(&self, msg: String) {
+    self.sender.send(LogMessage::Debug(msg)).ok();
+  }
+
+  fn info(&self, msg: String) {
+    self.sender.send(LogMessage::Info(msg)).ok();
+  }
+
+  fn warn(&self, msg: String) {
+    self.sender.send(LogMessage::Warn(msg)).ok();
+  }
+
+  fn error(&self, msg: String) {
+    self.sender.send(LogMessage::Error(msg)).ok();
+  }
+}
+
+impl SpawnableLogger<ChildLogger> for MainLogger {
+  fn spawn(&self) -> ChildLogger {
+    ChildLogger {
+      sender: self.sender.clone(),
+    }
+  }
+}
+
 pub struct ChildLogger {
   sender: std::sync::mpsc::Sender<LogMessage>,
 }
 
-impl ChildLogger {
-  pub fn spawn(&self) -> Self {
-    Self {
-      sender: self.sender.clone(),
-    }
-  }
-
-  pub fn trace(&self, msg: String) {
+impl Logger for ChildLogger {
+  fn trace(&self, msg: String) {
     self.sender.send(LogMessage::Trace(msg)).ok();
   }
 
-  pub fn debug(&self, msg: String) {
+  fn debug(&self, msg: String) {
     self.sender.send(LogMessage::Debug(msg)).ok();
   }
 
-  pub fn info(&self, msg: String) {
+  fn info(&self, msg: String) {
     self.sender.send(LogMessage::Info(msg)).ok();
   }
 
-  pub fn warn(&self, msg: String) {
+  fn warn(&self, msg: String) {
     self.sender.send(LogMessage::Warn(msg)).ok();
   }
 
-  pub fn error(&self, msg: String) {
+  fn error(&self, msg: String) {
     self.sender.send(LogMessage::Error(msg)).ok();
+  }
+}
+
+impl SpawnableLogger<ChildLogger> for ChildLogger {
+  fn spawn(&self) -> Self {
+    Self {
+      sender: self.sender.clone(),
+    }
   }
 }
 
