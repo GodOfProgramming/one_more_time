@@ -1,7 +1,7 @@
 use super::UiRoot;
 use crate::{
   ui::UiElement,
-  util::{DirID, Settings, XmlNode},
+  util::{DirID, Logger, Settings, XmlNode},
 };
 use imgui_glium_renderer::imgui::Ui;
 use std::{collections::BTreeMap, path::PathBuf};
@@ -12,21 +12,30 @@ pub struct UiManager {
 }
 
 impl UiManager {
-  pub fn new<I>(iter: I) -> Self
+  pub fn new<L: Logger, I>(logger: &L, iter: I) -> Self
   where
     I: Iterator<Item = PathBuf>,
   {
     let mut manager = Self::default();
 
+    logger.debug("reading entries".to_string());
+
     for entry in iter {
+      logger.debug(format!("reading entry {:?}", entry));
       if let Ok(xml) = std::fs::read_to_string(&entry) {
         if let Ok(mut nodes) = XmlNode::parse(&xml) {
           if let Some(node) = nodes.drain(..).next() {
-            manager.ui.insert(DirID::from(entry), UiRoot::from(node));
+            manager
+              .ui
+              .insert(DirID::from(entry), UiRoot::from((logger, node)));
           } else {
-            // todo log here
+            logger.error(format!("xml {:?} was empty", entry));
           }
+        } else {
+          logger.error(format!("failed to parse xml for {:?}", entry));
         }
+      } else {
+        logger.error(format!("unable to read file {:?}", entry));
       }
     }
 

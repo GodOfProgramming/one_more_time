@@ -25,31 +25,12 @@ pub struct App {
 
 impl App {
   pub fn new() -> Self {
-    let logger = MainLogger::new();
+    let logger = MainLogger::new(LOG_LIMIT);
 
     Self { logger }
   }
 
   pub fn run(&mut self) {
-    /////////////////////////
-    let test_window_xml = std::fs::read_to_string("assets/ui/test_window.xml").unwrap();
-    let test_bar_xml = std::fs::read_to_string("assets/ui/test_bar.xml").unwrap();
-
-    let test_window_nodes = XmlNode::parse(&test_window_xml).unwrap();
-    let test_bar_nodes = XmlNode::parse(&test_bar_xml).unwrap();
-
-    let mut elements = Vec::new();
-
-    for node in test_window_nodes {
-      elements.push(UiRoot::from(node));
-    }
-
-    for node in test_bar_nodes {
-      elements.push(UiRoot::from(node));
-    }
-
-    /////////////////////////
-
     let cwd = env::current_dir().unwrap(); // unwrap because there's bigger problems if this doesn't work
 
     let dirs = Dirs::new(cwd);
@@ -86,7 +67,10 @@ impl App {
 
     let mut fps_manager = FpsManager::new(settings.graphics.fps.into());
 
-    let mut ui_manager = UiManager::new(RecursiveDirectoryIterator::from(&dirs.assets.ui));
+    let mut ui_manager = UiManager::new(
+      &self.logger,
+      RecursiveDirectoryIterator::iterate_with_prefix(&dirs.assets.ui),
+    );
 
     self
       .logger

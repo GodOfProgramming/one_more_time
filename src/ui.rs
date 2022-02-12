@@ -13,7 +13,7 @@ pub mod components {
   pub use super::window::*;
 }
 
-use crate::util::{Settings, XmlNode};
+use crate::util::{Logger, Settings, XmlNode};
 use imgui_glium_renderer::imgui::Ui;
 use lazy_static::lazy_static;
 use log::warn;
@@ -136,14 +136,14 @@ impl UiElementParent for UiRoot {
   }
 }
 
-impl From<XmlNode> for UiRoot {
-  fn from(node: XmlNode) -> Self {
+impl<L: Logger> From<(&L, XmlNode)> for UiRoot {
+  fn from((logger, node): (&L, XmlNode)) -> Self {
     let mut root = UiRoot::default();
 
     if let Some(f) = Self::valid_children().get(node.name.as_str()) {
       root.el = f(node);
     } else {
-      warn!("ui type of '{}' is not valid", node.name);
+      logger.warn(format!("ui type of '{}' is not valid", node.name));
     }
 
     root

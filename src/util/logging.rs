@@ -32,6 +32,7 @@ enum LogMessage {
   Info(String),
   Warn(String),
   Error(String),
+  Stop,
 }
 
 pub struct MainLogger {
@@ -40,7 +41,7 @@ pub struct MainLogger {
 }
 
 impl MainLogger {
-  pub fn new() -> Self {
+  pub fn new(limit: usize) -> Self {
     let (sender, receiver) = std::sync::mpsc::channel::<LogMessage>();
     let logging_thread = std::thread::spawn(move || {
       for message in receiver {
@@ -50,9 +51,12 @@ impl MainLogger {
           LogMessage::Info(msg) => info!("{}", msg),
           LogMessage::Warn(msg) => warn!("{}", msg),
           LogMessage::Error(msg) => error!("{}", msg),
+          LogMessage::Stop => break,
         }
       }
     });
+
+    Self::setup_logger(limit);
 
     Self {
       logging_thread,
@@ -148,6 +152,12 @@ impl MainLogger {
     }
 
     next
+  }
+}
+
+impl Drop for MainLogger {
+  fn drop(&mut self) {
+    self.sender.send(LogMessage::Stop).unwrap();
   }
 }
 

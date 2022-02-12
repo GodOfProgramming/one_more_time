@@ -1,6 +1,5 @@
 use std::{
   ffi::{OsStr, OsString},
-  fs,
   path::{Path, PathBuf},
 };
 use walkdir::{DirEntry, WalkDir};
@@ -8,6 +7,21 @@ use walkdir::{DirEntry, WalkDir};
 pub struct RecursiveDirectoryIterator {
   dirs: Vec<PathBuf>,
   idx: usize,
+}
+
+impl RecursiveDirectoryIterator {
+  pub fn iterate_with_prefix(path: &Path) -> Self {
+    let mut dirs = Vec::new();
+
+    for result in WalkDir::new(path) {
+      let entry: DirEntry = result.unwrap();
+      if entry.file_type().is_file() {
+        dirs.push(entry.path().to_path_buf());
+      }
+    }
+
+    Self { dirs, idx: 0 }
+  }
 }
 
 impl From<&Path> for RecursiveDirectoryIterator {
@@ -36,7 +50,7 @@ impl Iterator for RecursiveDirectoryIterator {
   fn next(&mut self) -> std::option::Option<<Self as Iterator>::Item> {
     let dir = self.dirs.get(self.idx);
     self.idx += 1;
-    dir.and_then(|p| Some(p.clone()))
+    dir.cloned()
   }
 }
 
