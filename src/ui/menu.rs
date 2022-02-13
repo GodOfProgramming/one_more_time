@@ -1,12 +1,4 @@
-use super::{types, SubElementMap, UiElement, UiElementParent, UiSubElements};
-use crate::{
-  type_map,
-  util::{convert::string, Settings, XmlNode},
-};
-use imgui_glium_renderer::imgui::{ImStr, Ui};
-use lazy_static::lazy_static;
-use maplit::hashmap;
-use std::ffi::CString;
+use super::common::*;
 
 pub struct Menu {
   name: CString,
@@ -29,12 +21,12 @@ impl Menu {
 }
 
 impl UiElement for Menu {
-  fn update(&mut self, ui: &Ui<'_>, settings: &Settings) {
+  fn update(&mut self, ui: &Ui<'_>, lua: Option<&Lua>, settings: &Settings) {
     let im_str = unsafe { ImStr::from_cstr_unchecked(&self.name) };
     let children = &mut self.children;
     if let Some(menu) = ui.begin_menu(im_str) {
       for child in children.iter_mut() {
-        child.update(ui, settings);
+        child.update(ui, lua, settings);
       }
       menu.end();
     }

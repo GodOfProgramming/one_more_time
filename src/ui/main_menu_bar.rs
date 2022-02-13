@@ -1,11 +1,4 @@
-use super::{types, SubElementMap, UiElement, UiElementParent, UiSubElements};
-use crate::{
-  type_map,
-  util::{Settings, XmlNode},
-};
-use imgui_glium_renderer::imgui::Ui;
-use lazy_static::lazy_static;
-use maplit::hashmap;
+use super::common::*;
 
 pub struct MainMenuBar {
   children: UiSubElements,
@@ -20,10 +13,10 @@ impl MainMenuBar {
 }
 
 impl UiElement for MainMenuBar {
-  fn update(&mut self, ui: &Ui<'_>, settings: &Settings) {
+  fn update(&mut self, ui: &Ui<'_>, lua: Option<&Lua>, settings: &Settings) {
     ui.main_menu_bar(|| {
       for child in self.children.iter_mut() {
-        child.update(ui, settings);
+        child.update(ui, lua, settings);
       }
     });
   }

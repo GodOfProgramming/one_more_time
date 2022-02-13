@@ -2,75 +2,47 @@ mod game;
 mod gfx;
 mod input;
 mod math;
+mod scripting;
 mod ui;
 mod util;
 mod view;
 
+use crate::{
+  input::InputDevices,
+  scripting::{LuaType, ScriptRepository},
+  util::{ChildLogger, Dirs, MainLogger, RecursiveDirIDIterator, Settings, SpawnableLogger},
+};
 use game::App;
-use mlua::{prelude::*, StdLib, UserData, UserDataFields};
-use std::cell::RefCell;
-use std::rc::Rc;
-use util::MainLogger;
+use mlua::{prelude::*, UserData, UserDataFields};
+use std::{env, path::Path};
 
-struct Test {
-  pub id: i32,
-}
-
-impl Test {
-  pub fn test(&self) {
-    println!("id = {}", self.id);
-  }
-}
-
-struct LuaObj<T>(Rc<RefCell<T>>);
-
-impl LuaObj<Test> {
-  pub fn new(id: i32) -> Self {
-    Self(Rc::new(RefCell::new(Test { id })))
-  }
-
-  pub fn id(&self) -> i32 {
-    self.0.borrow().id
-  }
-
-  pub fn set_id(&mut self, id: i32) {
-    self.0.borrow_mut().id = id;
-  }
-}
-
-impl Clone for LuaObj<Test> {
-  fn clone(&self) -> Self {
-    Self(self.0.clone())
-  }
-}
-
-impl UserData for LuaObj<Test> {
-  fn add_fields<'lua, F: UserDataFields<'lua, Self>>(fields: &mut F) {
-    fields.add_field_method_get("id", |_, this| Ok(this.id()));
-    fields.add_field_method_set("id", |_, this, val: i32| {
-      this.set_id(val);
-      Ok(())
-    });
-  }
-}
+static SETTINGS_FILE: &str = "config/settings.toml";
+const LOG_LIMIT: usize = 5;
 
 fn main() {
-  let lua: Lua = Lua::new();
+  let logger = MainLogger::new(LOG_LIMIT);
 
-  let tbl = lua.create_table().unwrap();
-  let test = LuaObj::<Test>::new(1);
-  let ud = lua.create_userdata(test.clone()).unwrap();
-  tbl.set("data", ud).unwrap();
-  lua.globals().set("gbl", tbl).unwrap();
+  let mut app = LuaType::<App>::new(logger.spawn());
 
-  lua
-    .load("print(gbl.data.id); gbl.data.id = 2;")
-    .exec()
-    .unwrap();
+  let cwd = env::current_dir().unwrap(); // unwrap because there's bigger problems if this doesn't work
+  let dirs = Dirs::new(cwd);
+  let settings_file = Path::new(SETTINGS_FILE);
+  let settings = Settings::load(settings_file).unwrap();
 
-  println!("id = {}", test.id());
+  let mut input_devices = InputDevices::default();
 
-  let mut app = App::new();
+  let script_repo = ScriptRepository::new(
+    &logger,
+    RecursiveDirIDIterator::from(&dirs.assets.scripts),
+    |lua: &mut Lua| {
+      let _ = lua.globals().set("App", app.clone());
+      let _ = lua
+        .globals()
+        .set("Logger", LuaType::<ChildLogger>::from_type(logger.spawn()));
+    },
+  );
 
-  app.run();
+  app.run(&settings, &dirs, &mut input_devices, &script_repo);
+
+  settings.save(settings_file).unwrap();
 }

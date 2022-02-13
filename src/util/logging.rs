@@ -1,8 +1,9 @@
+use crate::scripting::LuaType;
 use fern::InitError;
 use glium::debug::{MessageType, Severity, Source};
-use lazy_static::lazy_static;
 use log::LevelFilter;
 use log::{debug, error, info, trace, warn};
+use mlua::{UserData, UserDataMethods};
 use std::{
   ffi::OsString,
   fs::{self, OpenOptions},
@@ -75,9 +76,10 @@ impl MainLogger {
     fern::Dispatch::new()
       .format(|out, msg, record| {
         out.finish(format_args!(
-          "{}[{}][{}] {}",
+          "{}[{}] {}",
+          // "{}[{}][{}] {}",
           chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
-          record.target(),
+          // record.target(),
           record.level(),
           msg
         ))
@@ -225,12 +227,53 @@ impl SpawnableLogger<ChildLogger> for ChildLogger {
   }
 }
 
-pub fn gl_error_handler(
-  source: Source,
-  message_type: MessageType,
-  severity: Severity,
-  _ident: u32,
-  handled: bool,
-  message: &str,
-) {
+impl LuaType<ChildLogger> {
+  fn trace(&self, msg: String) {
+    self.obj().borrow().trace(msg);
+  }
+
+  fn debug(&self, msg: String) {
+    self.obj().borrow().debug(msg);
+  }
+
+  fn info(&self, msg: String) {
+    self.obj().borrow().info(msg);
+  }
+
+  fn warn(&self, msg: String) {
+    self.obj().borrow().warn(msg);
+  }
+
+  fn error(&self, msg: String) {
+    self.obj().borrow().error(msg);
+  }
+}
+
+impl UserData for LuaType<ChildLogger> {
+  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
+    methods.add_method_mut("trace", |_, this, msg: String| {
+      this.trace(msg);
+      Ok(())
+    });
+
+    methods.add_method_mut("debug", |_, this, msg: String| {
+      this.debug(msg);
+      Ok(())
+    });
+
+    methods.add_method_mut("info", |_, this, msg: String| {
+      this.info(msg);
+      Ok(())
+    });
+
+    methods.add_method_mut("warn", |_, this, msg: String| {
+      this.warn(msg);
+      Ok(())
+    });
+
+    methods.add_method_mut("error", |_, this, msg: String| {
+      this.error(msg);
+      Ok(())
+    });
+  }
 }

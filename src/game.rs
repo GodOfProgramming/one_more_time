@@ -1,76 +1,84 @@
-use crate::gfx::{ShaderRepository, ShaderSources};
-use crate::input::{
-  keyboard::{Key, KeyAction},
-  InputCheck, InputDevices,
+use crate::{
+  gfx::ShaderSources,
+  input::{
+    keyboard::{Key, KeyAction},
+    InputCheck, InputDevices,
+  },
+  scripting::{LuaType, ScriptRepository},
+  ui::UiManager,
+  util::{
+    ChildLogger, Dirs, FpsManager, Logger, MainLogger, RecursiveDirectoryIterator, Settings,
+    SpawnableLogger,
+  },
+  view::window::{Window, WindowSettings},
 };
-use crate::ui::{UiElement, UiManager, UiRoot};
-use crate::util::{
-  self, ChildLogger, Dirs, FpsManager, Logger, MainLogger, RecursiveDirectoryIterator, Settings,
-  SpawnableLogger, XmlNode,
-};
-use crate::view::window::{Window, WindowSettings};
+use glium::backend::Context;
 use glium::debug::DebugCallbackBehavior;
 use glium::debug::{MessageType, Severity, Source};
 use glium::Surface;
 use imgui_glium_renderer::imgui;
-use log::info;
-use std::{env, ops::Deref, path::Path};
+use mlua::{UserData, UserDataFields, UserDataMethods};
+use std::{env, path::Path};
 
-static SETTINGS_FILE: &str = "config/settings.toml";
-const LOG_LIMIT: usize = 5;
+#[derive(PartialEq)]
+enum State {
+  Starting,
+  InGame,
+  Paused,
+  Exiting,
+}
 
 pub struct App {
-  logger: MainLogger,
+  logger: ChildLogger,
+  state: State,
 }
 
 impl App {
-  pub fn new() -> Self {
-    let logger = MainLogger::new(LOG_LIMIT);
-
-    Self { logger }
+  pub fn new(logger: ChildLogger) -> Self {
+    Self {
+      logger,
+      state: State::Starting,
+    }
   }
 
-  pub fn run(&mut self) {
-    let cwd = env::current_dir().unwrap(); // unwrap because there's bigger problems if this doesn't work
-
-    let dirs = Dirs::new(cwd);
-
-    let settings_file = Path::new(SETTINGS_FILE);
-
-    let settings = Settings::load(settings_file).unwrap();
-
-    let window_settings = WindowSettings::new(&settings);
-
+  pub fn run(
+    &mut self,
+    settings: &Settings,
+    dirs: &Dirs,
+    input_devices: &mut InputDevices,
+    scripts: &ScriptRepository,
+  ) {
+    // window
+    let window_settings = WindowSettings::new(settings);
     let (window, draw_interface) = Window::new(window_settings);
 
-    let child_logger = self.logger.spawn();
-    let behavior = App::create_opengl_debug_behavior(child_logger);
+    // opengl
+    let behavior = App::create_opengl_debug_behavior(self.logger.spawn());
+    let gl_context = unsafe { Context::new(draw_interface, true, behavior).unwrap() };
 
-    let gl_context =
-      unsafe { glium::backend::Context::new(draw_interface, true, behavior).unwrap() };
-
+    // shaders
     let mut shaders = ShaderSources::new();
     shaders.load_all();
-
     let shader_repository = shaders.load_repository(&gl_context);
 
+    // textures
+
+    // ui
     let mut imgui_ctx = imgui_glium_renderer::imgui::Context::create();
     imgui_ctx.set_ini_filename(None);
     imgui_ctx.set_log_filename(None);
-
     let mut imgui_render =
       imgui_glium_renderer::Renderer::init(&mut imgui_ctx, &gl_context.clone()).unwrap();
-
-    let mut input_devices = InputDevices::default();
-
     window.setup_imgui(&mut imgui_ctx);
-
-    let mut fps_manager = FpsManager::new(settings.graphics.fps.into());
 
     let mut ui_manager = UiManager::new(
       &self.logger,
       RecursiveDirectoryIterator::iterate_with_prefix(&dirs.assets.ui),
+      scripts,
     );
+
+    // game
+    let mut fps_manager = FpsManager::new(settings.graphics.fps.into());
 
     self
       .logger
@@ -80,16 +88,20 @@ impl App {
 
     let mut i: f32 = 0.0;
     'main: loop {
+      if self.state == State::Exiting {
+        break 'main;
+      }
+
       // frame setup
 
       fps_manager.begin();
 
-      window.poll_events(&mut input_devices, &mut imgui_ctx);
+      window.poll_events(input_devices, &mut imgui_ctx);
 
       // pre prossess game logic
 
       if input_devices.check(Key::Escape) == KeyAction::Press {
-        break 'main;
+        break;
       }
 
       // game logic
@@ -118,21 +130,7 @@ impl App {
 
       let ui: imgui::Ui<'_> = imgui_ctx.frame();
 
-      imgui::Window::new("Hello world")
-        .size([300.0, 100.0], imgui::Condition::FirstUseEver)
-        .build(&ui, || {
-          ui.text("Hello world!");
-          ui.text("こんにちは世界！");
-          ui.text("This...is...imgui-rs!");
-          ui.separator();
-          let mouse_pos = ui.io().mouse_pos;
-          ui.text(format!(
-            "Mouse Position: ({:.1},{:.1})",
-            mouse_pos[0], mouse_pos[1]
-          ));
-        });
-
-      ui_manager.update(&ui, &settings);
+      ui_manager.update(&ui, settings);
 
       ui.show_demo_window(&mut true);
 
@@ -148,8 +146,6 @@ impl App {
 
       fps_manager.end();
     }
-
-    settings.save(settings_file).unwrap();
   }
 
   fn create_opengl_debug_behavior(child_logger: ChildLogger) -> DebugCallbackBehavior {
@@ -192,5 +188,37 @@ impl App {
         },
       ),
     }
+  }
+}
+
+impl LuaType<App> {
+  pub fn new(logger: ChildLogger) -> Self {
+    Self::from_type(App::new(logger))
+  }
+
+  pub fn run(
+    &mut self,
+    settings: &Settings,
+    dirs: &Dirs,
+    input_devices: &mut InputDevices,
+    scripts: &ScriptRepository,
+  ) {
+    self
+      .obj()
+      .borrow_mut()
+      .run(settings, dirs, input_devices, scripts);
+  }
+
+  fn request_exit(&mut self) {
+    self.obj().borrow_mut().state = State::Exiting;
+  }
+}
+
+impl UserData for LuaType<App> {
+  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
+    methods.add_method_mut("request_exit", |_, this, _: ()| {
+      this.request_exit();
+      Ok(())
+    });
   }
 }

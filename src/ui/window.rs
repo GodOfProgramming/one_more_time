@@ -1,12 +1,4 @@
-use super::{types, SubElementMap, UiElement, UiElementParent, UiSubElements};
-use crate::{
-  type_map,
-  util::{convert::string, Settings, XmlNode},
-};
-use imgui_glium_renderer::imgui::{self, ImStr, Ui};
-use lazy_static::lazy_static;
-use maplit::hashmap;
-use std::ffi::CString;
+use super::common::*;
 
 pub struct Window {
   title: CString,
@@ -45,7 +37,7 @@ impl Window {
 }
 
 impl UiElement for Window {
-  fn update(&mut self, ui: &Ui<'_>, settings: &Settings) {
+  fn update(&mut self, ui: &Ui<'_>, lua: Option<&Lua>, settings: &Settings) {
     let im_str = unsafe { ImStr::from_cstr_unchecked(&self.title) };
     let children = &mut self.children;
     imgui::Window::new(&im_str)
@@ -54,7 +46,7 @@ impl UiElement for Window {
       .bg_alpha(if self.transparent { 0.0 } else { 1.0 })
       .build(ui, || {
         for child in children.iter_mut() {
-          child.update(ui, settings);
+          child.update(ui, lua, settings);
         }
       });
   }

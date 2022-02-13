@@ -7,9 +7,9 @@ mod settings;
 mod xml;
 
 pub use self::{
-  dir::{DirID, Dirs, RecursiveDirectoryIterator},
+  dir::{DirID, Dirs, RecursiveDirIDIterator, RecursiveDirectoryIterator},
   fps::FpsManager,
-  logging::{gl_error_handler, ChildLogger, Logger, MainLogger, SpawnableLogger},
+  logging::{ChildLogger, Logger, MainLogger, SpawnableLogger},
   settings::Settings,
   xml::XmlNode,
 };

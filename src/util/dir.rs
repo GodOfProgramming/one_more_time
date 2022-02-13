@@ -54,6 +54,31 @@ impl Iterator for RecursiveDirectoryIterator {
   }
 }
 
+pub struct RecursiveDirIDIterator {
+  dirs: Vec<(PathBuf, DirID)>,
+  idx: usize,
+}
+
+impl From<&PathBuf> for RecursiveDirIDIterator {
+  fn from(path: &PathBuf) -> Self {
+    let mut v = Vec::new();
+    iterate_dir_with_id(path, |path, id| {
+      v.push((path.to_path_buf(), id));
+    });
+
+    Self { dirs: v, idx: 0 }
+  }
+}
+
+impl Iterator for RecursiveDirIDIterator {
+  type Item = (PathBuf, DirID);
+  fn next(&mut self) -> std::option::Option<<Self as Iterator>::Item> {
+    let dir = self.dirs.get(self.idx);
+    self.idx += 1;
+    dir.cloned()
+  }
+}
+
 #[derive(Debug, Clone)]
 pub struct Dirs {
   pub root: PathBuf,
@@ -78,6 +103,7 @@ pub struct AssetsDir {
   pub shaders: PathBuf,
   pub textures: PathBuf,
   pub ui: PathBuf,
+  pub scripts: PathBuf,
 }
 
 impl AssetsDir {
@@ -88,6 +114,7 @@ impl AssetsDir {
       shaders: dir.join("shaders"),
       textures: dir.join("textures"),
       ui: dir.join("ui"),
+      scripts: dir.join("scripts"),
     }
   }
 }
@@ -128,6 +155,14 @@ impl From<PathBuf> for DirID {
     }
 
     Self { id }
+  }
+}
+
+impl From<&str> for DirID {
+  fn from(id: &str) -> Self {
+    Self {
+      id: OsString::from(id),
+    }
   }
 }
 

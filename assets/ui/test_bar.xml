@@ -1,5 +1,8 @@
-<main-menu-bar>
-  <menu name="Debug">
-    <menu-item name="Demo"></menu-item>
-  </menu>
-</main-menu-bar>
+<root>
+  <script id="test.test_bar" />
+  <main-menu-bar>
+    <menu name="Debug">
+      <menu-item name="Exit" click="on_exit"></menu-item>
+    </menu>
+  </main-menu-bar>
+</root>

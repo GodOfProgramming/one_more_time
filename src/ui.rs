@@ -13,12 +13,16 @@ pub mod components {
   pub use super::window::*;
 }
 
-use crate::util::{Logger, Settings, XmlNode};
+use crate::{
+  scripting::ScriptRepository,
+  util::{Logger, Settings, XmlNode},
+};
 use imgui_glium_renderer::imgui::Ui;
 use lazy_static::lazy_static;
 use log::warn;
 use maplit::hashmap;
-use std::collections::HashMap;
+use mlua::Lua;
+use std::{collections::HashMap, rc::Rc};
 pub use ui_manager::UiManager;
 
 #[macro_export]
@@ -31,6 +35,19 @@ macro_rules! type_map {
       }
     };
   }
+
+pub mod common {
+  pub use super::{types, SubElementMap, UiElement, UiElementParent, UiSubElements};
+  pub use crate::{
+    type_map,
+    util::{convert::string, ChildLogger, Settings, XmlNode},
+  };
+  pub use imgui_glium_renderer::imgui::{self, ImStr, Ui};
+  pub use lazy_static::lazy_static;
+  pub use maplit::hashmap;
+  pub use mlua::prelude::*;
+  pub use std::ffi::CString;
+}
 
 pub mod types {
   use super::{components::*, SubElementCreator, UiSubElement, XmlNode};
@@ -64,13 +81,13 @@ pub mod types {
   pub const MENU_ITEM: UiComponentKvp = ("menu-item", create_menu_item);
 }
 
-type UiSubElement = Box<dyn UiElement + Send + Sync>;
-type UiSubElements = Vec<UiSubElement>;
-type SubElementCreator = fn(XmlNode) -> UiSubElement;
-type SubElementMap = HashMap<&'static str, SubElementCreator>;
+pub type UiSubElement = Box<dyn UiElement + Send + Sync>;
+pub type UiSubElements = Vec<UiSubElement>;
+pub type SubElementCreator = fn(XmlNode) -> UiSubElement;
+pub type SubElementMap = HashMap<&'static str, SubElementCreator>;
 
 pub trait UiElement {
-  fn update(&mut self, ui: &Ui<'_>, settings: &Settings);
+  fn update(&mut self, ui: &Ui<'_>, lua: Option<&Lua>, settings: &Settings);
 }
 
 pub trait UiElementParent {
@@ -80,7 +97,7 @@ pub trait UiElementParent {
 struct EmptyUi;
 
 impl UiElement for EmptyUi {
-  fn update(&mut self, _: &Ui<'_>, _: &Settings) {
+  fn update(&mut self, _: &Ui<'_>, lua: Option<&Lua>, _: &Settings) {
     panic!("'update' unimplemented for EmptyUi")
   }
 }
@@ -108,19 +125,47 @@ pub fn parse_children<E: UiElementParent>(root: XmlNode) -> UiSubElements {
 
 pub struct UiRoot {
   el: UiSubElement,
+  lua: Option<Rc<Lua>>,
+}
+
+impl UiRoot {
+  pub fn new<L: Logger>(node: XmlNode, logger: &L, scripts: &ScriptRepository) -> Self {
+    let mut root = UiRoot::default();
+
+    for node in node.children {
+      if node.name == "script" {
+        if let Some(id) = node.attribs.get("id") {
+          if let Some(lua) = scripts.get(id) {
+            root.lua = Some(lua);
+          }
+        } else {
+          logger.error("script tag without id found".to_string());
+        }
+      } else if let Some(f) = Self::valid_children().get(node.name.as_str()) {
+        root.el = f(node);
+      } else {
+        logger.error(format!("ui type of '{}' is not valid", node.name));
+      }
+    }
+
+    root
+  }
+
+  fn update(&mut self, ui: &Ui<'_>, settings: &Settings) {
+    if let Some(lua) = &self.lua {
+      self.el.update(ui, Some(lua), settings);
+    } else {
+      self.el.update(ui, None, settings);
+    }
+  }
 }
 
 impl Default for UiRoot {
   fn default() -> Self {
     Self {
       el: Box::new(EmptyUi),
+      lua: None,
     }
-  }
-}
-
-impl UiElement for UiRoot {
-  fn update(&mut self, ui: &Ui<'_>, settings: &Settings) {
-    self.el.update(ui, settings);
   }
 }
 
@@ -133,19 +178,5 @@ impl UiElementParent for UiRoot {
     }
 
     &MAP
-  }
-}
-
-impl<L: Logger> From<(&L, XmlNode)> for UiRoot {
-  fn from((logger, node): (&L, XmlNode)) -> Self {
-    let mut root = UiRoot::default();
-
-    if let Some(f) = Self::valid_children().get(node.name.as_str()) {
-      root.el = f(node);
-    } else {
-      logger.warn(format!("ui type of '{}' is not valid", node.name));
-    }
-
-    root
   }
 }

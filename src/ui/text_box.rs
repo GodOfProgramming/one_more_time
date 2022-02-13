@@ -1,11 +1,4 @@
-use super::{SubElementMap, UiElement, UiElementParent};
-use crate::{
-  type_map,
-  util::{Settings, XmlNode},
-};
-use imgui_glium_renderer::imgui::Ui;
-use lazy_static::lazy_static;
-use maplit::hashmap;
+use super::common::*;
 
 pub struct TextBox {
   text: String,
@@ -20,7 +13,7 @@ impl TextBox {
 }
 
 impl UiElement for TextBox {
-  fn update(&mut self, ui: &Ui<'_>, _settings: &Settings) {
+  fn update(&mut self, ui: &Ui<'_>, lua: Option<&Lua>, _settings: &Settings) {
     ui.text(&self.text);
   }
 }

@@ -1,16 +1,8 @@
-use super::{SubElementMap, UiElement, UiElementParent};
-use crate::{
-  type_map,
-  util::{convert::string, Settings, XmlNode},
-};
-use imgui_glium_renderer::imgui::{self, ImStr, Ui};
-use lazy_static::lazy_static;
-use log::info;
-use maplit::hashmap;
-use std::ffi::CString;
+use super::common::*;
 
 pub struct MenuItem {
   name: CString,
+  on_click: Option<String>,
 }
 
 impl MenuItem {
@@ -21,15 +13,24 @@ impl MenuItem {
       .map(|v| string::into_cstring(&v))
       .unwrap_or_default();
 
-    Self { name }
+    let on_click = root.attribs.remove("click");
+
+    Self { name, on_click }
   }
 }
 
 impl UiElement for MenuItem {
-  fn update(&mut self, ui: &Ui<'_>, _settings: &Settings) {
+  fn update(&mut self, ui: &Ui<'_>, lua: Option<&Lua>, _settings: &Settings) {
     let im_str = unsafe { ImStr::from_cstr_unchecked(&self.name) };
     if imgui::MenuItem::new(im_str).build(ui) {
-      info!("click");
+      if let Some(on_click) = &self.on_click {
+        if let Some(lua) = lua {
+          let res: Result<(), mlua::Error> = lua.globals().call_function(on_click.as_str(), ());
+          if let Err(e) = res {
+            println!("error {}", e);
+          }
+        }
+      }
     }
   }
 }

@@ -45,13 +45,13 @@ impl ShaderSource {
 
         if imported_files.contains(&import_str) {
           return Err(format!(
-          "cargo:warning=circular dependency detected processing:\n{}\nalready imported file:\n{}",
-          shader_str, import_str,
-        ));
+            "circular dependency detected processing:\n{}\nalready imported file:\n{}",
+            shader_str, import_str,
+          ));
         }
 
         if successful_imports.contains(&import_str) {
-          warn!("cargo:warning=already imported '{}', skipping", import_str);
+          warn!("already imported '{}', skipping", import_str);
           continue;
         }
 

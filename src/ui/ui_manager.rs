@@ -1,5 +1,6 @@
 use super::UiRoot;
 use crate::{
+  scripting::ScriptRepository,
   ui::UiElement,
   util::{DirID, Logger, Settings, XmlNode},
 };
@@ -12,7 +13,7 @@ pub struct UiManager {
 }
 
 impl UiManager {
-  pub fn new<L: Logger, I>(logger: &L, iter: I) -> Self
+  pub fn new<L: Logger, I>(logger: &L, iter: I, scripts: &ScriptRepository) -> Self
   where
     I: Iterator<Item = PathBuf>,
   {
@@ -27,7 +28,7 @@ impl UiManager {
           if let Some(node) = nodes.drain(..).next() {
             manager
               .ui
-              .insert(DirID::from(entry), UiRoot::from((logger, node)));
+              .insert(DirID::from(entry), UiRoot::new(node, logger, scripts));
           } else {
             logger.error(format!("xml {:?} was empty", entry));
           }
