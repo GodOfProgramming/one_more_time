@@ -7,8 +7,8 @@ use crate::{
   scripting::{LuaType, ScriptRepository},
   ui::UiManager,
   util::{
-    ChildLogger, Dirs, FpsManager, Logger, MainLogger, RecursiveDirIDIterator,
-    RecursiveDirectoryIterator, Settings, SpawnableLogger,
+    ChildLogger, Dirs, FpsManager, Logger, MainLogger, RecursiveDirIterator,
+    RecursiveDirIteratorWithID, Settings, SpawnableLogger,
   },
   view::window::{Window, WindowSettings},
 };
@@ -70,7 +70,7 @@ impl App {
 
     // shaders
     let mut shaders = ShaderSources::new();
-    shaders.load_all();
+    shaders.load_all(dirs);
     let shader_repository = shaders.load_repository(&gl_context);
 
     // textures
@@ -85,7 +85,7 @@ impl App {
 
     let mut ui_manager = UiManager::new(
       &self.logger,
-      RecursiveDirectoryIterator::iterate_with_prefix(&dirs.assets.ui),
+      RecursiveDirIterator::iterate_with_prefix(&dirs.assets.ui),
       scripts,
     );
 

@@ -1,7 +1,7 @@
-use crate::util::{self, dir, DirID};
-use glium::program::{Program, ProgramCreationError, ShaderType};
+use crate::util::{self, DirID, Dirs, RecursiveDirIteratorWithID};
+use glium::program::{Program, ProgramCreationError};
 use lazy_static::lazy_static;
-use log::{error, info, warn};
+use log::{error, warn};
 use regex::Regex;
 use std::{
   collections::{BTreeMap, BTreeSet},
@@ -109,11 +109,10 @@ impl ShaderSources {
     }
   }
 
-  pub fn load_all(&mut self) {
-    let config = PathBuf::new().join("assets").join("cfg").join("shaders");
-    util::dir::iterate_dir_with_id(&config, |path, id| {
-      let data = fs::read_to_string(path)
-        .map_err(|e| format!("cannot find {}, err = {}", path.display(), e))
+  pub fn load_all(&mut self, dirs: &Dirs) {
+    for (path, id) in RecursiveDirIteratorWithID::from(&dirs.assets.cfg.shaders) {
+      let data = fs::read_to_string(&path)
+        .map_err(|e| format!("cannot find {:?}, err = {}", path, e))
         .unwrap();
       let table = data.parse::<Value>().unwrap();
       let table = table.as_table().unwrap();
@@ -161,7 +160,7 @@ impl ShaderSources {
           error!("required shader types not present for program");
         }
       }
-    });
+    }
   }
 
   pub fn load_repository(self, ctx: &std::rc::Rc<glium::backend::Context>) -> ShaderRepository {

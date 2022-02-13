@@ -10,7 +10,7 @@ mod view;
 use crate::{
   input::InputDevices,
   scripting::{LuaType, ScriptRepository},
-  util::{ChildLogger, Dirs, MainLogger, RecursiveDirIDIterator, Settings, SpawnableLogger},
+  util::{ChildLogger, Dirs, MainLogger, RecursiveDirIteratorWithID, Settings, SpawnableLogger},
 };
 use game::App;
 use mlua::Lua;
@@ -34,7 +34,7 @@ fn main() {
   let mut input_devices = InputDevices::default();
 
   let mut script_repo =
-    ScriptRepository::new(&logger, RecursiveDirIDIterator::from(&dirs.assets.scripts));
+    ScriptRepository::new(&logger, RecursiveDirIteratorWithID::from(&dirs.assets.scripts));
 
   // set up some top level lua functions
   {

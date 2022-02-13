@@ -1,4 +1,4 @@
-use crate::util::{self, dir, DirID};
+use crate::util::{self, DirID, Dirs, RecursiveDirIteratorWithID};
 use glium::texture::{
   self, RawImage2d, ResidentTexture, Texture2d, Texture2dDataSource, TextureAny, TextureHandle,
   TextureKind,
@@ -17,10 +17,9 @@ pub struct TextureSources {
 }
 
 impl TextureSources {
-  pub fn load_all(&mut self) {
-    let config = PathBuf::new().join("assets").join("cfg").join("textures");
-    util::dir::iterate_dir_with_id(&config, |path, id| {
-      let data = fs::read_to_string(path)
+  pub fn load_all(&mut self, dirs: &Dirs) {
+    for (path, id) in RecursiveDirIteratorWithID::from(&dirs.assets.cfg.textures) {
+      let data = fs::read_to_string(&path)
         .map_err(|e| format!("cannot find {}, err = {}", path.display(), e))
         .unwrap();
       let table = data.parse::<Value>().unwrap();
@@ -32,7 +31,7 @@ impl TextureSources {
         let img = Reader::open(filename).unwrap().decode().unwrap();
         self.images.insert(new_id, img);
       }
-    });
+    }
   }
 
   pub fn load_repository(self) {
