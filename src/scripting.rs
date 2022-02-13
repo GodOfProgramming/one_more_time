@@ -21,37 +21,57 @@ impl<T> Clone for LuaType<T> {
 }
 
 pub struct ScriptRepository {
-  scripts: BTreeMap<DirID, Rc<Lua>>,
+  init_fns: Vec<Box<dyn Fn(&mut Lua)>>,
+  scripts: BTreeMap<DirID, Rc<RefCell<Lua>>>,
+  sources: BTreeMap<DirID, String>,
 }
 
 impl ScriptRepository {
-  pub fn new<L, I, F>(logger: &L, iter: I, init_fn: F) -> Self
+  pub fn new<L, I>(logger: &L, iter: I) -> Self
   where
     L: Logger,
     I: Iterator<Item = (PathBuf, DirID)>,
-    F: Fn(&mut Lua),
   {
-    let mut scripts = BTreeMap::new();
+    let mut ret = Self {
+      init_fns: Default::default(),
+      scripts: Default::default(),
+      sources: Default::default(),
+    };
 
     for (path, id) in iter {
       logger.info(format!("loading {:?} as id {:?}", path, id));
       if let Ok(src) = fs::read_to_string(&path) {
-        let mut lua = Lua::new();
-        init_fn(&mut lua);
-        if lua.load(&src).exec().is_ok() {
-          scripts.insert(id, Rc::new(lua));
-        } else {
-          logger.error(format!("could not load {:?}", path));
-        }
+        ret
+          .scripts
+          .insert(id.clone(), Rc::new(RefCell::new(Lua::new())));
+        ret.sources.insert(id, src);
       } else {
         logger.error(format!("could not read {:?}", path));
       }
     }
 
-    Self { scripts }
+    ret
   }
 
-  pub fn get(&self, id: &str) -> Option<Rc<Lua>> {
+  pub fn register_init_fn(&mut self, f: Box<dyn Fn(&mut Lua)>) {
+    self.init_fns.push(f);
+  }
+
+  pub fn load_scripts<L: Logger>(&mut self, logger: &L) {
+    let keys = self.sources.keys();
+    for key in keys {
+      let lua = self.scripts.get(key).unwrap();
+      let src = self.sources.get(key).unwrap();
+      for f in &self.init_fns {
+        f(&mut lua.borrow_mut());
+      }
+      if let Err(e) = lua.borrow().load(&src).exec() {
+        logger.error(format!("could not load {:?}: {}", key, e));
+      }
+    }
+  }
+
+  pub fn get(&self, id: &str) -> Option<Rc<RefCell<Lua>>> {
     self.scripts.get(&DirID::from(id)).cloned()
   }
 }

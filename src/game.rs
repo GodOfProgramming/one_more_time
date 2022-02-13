@@ -7,8 +7,8 @@ use crate::{
   scripting::{LuaType, ScriptRepository},
   ui::UiManager,
   util::{
-    ChildLogger, Dirs, FpsManager, Logger, MainLogger, RecursiveDirectoryIterator, Settings,
-    SpawnableLogger,
+    ChildLogger, Dirs, FpsManager, Logger, MainLogger, RecursiveDirIDIterator,
+    RecursiveDirectoryIterator, Settings, SpawnableLogger,
   },
   view::window::{Window, WindowSettings},
 };
@@ -18,7 +18,11 @@ use glium::debug::{MessageType, Severity, Source};
 use glium::Surface;
 use imgui_glium_renderer::imgui;
 use mlua::{UserData, UserDataFields, UserDataMethods};
-use std::{env, path::Path};
+use std::{
+  env,
+  path::Path,
+  sync::mpsc::{Receiver, Sender},
+};
 
 #[derive(PartialEq)]
 enum State {
@@ -31,13 +35,21 @@ enum State {
 pub struct App {
   logger: ChildLogger,
   state: State,
+  message_sender: Sender<String>,
+  message_receiver: Receiver<String>,
 }
 
 impl App {
-  pub fn new(logger: ChildLogger) -> Self {
+  pub fn new(
+    logger: ChildLogger,
+    message_sender: Sender<String>,
+    message_receiver: Receiver<String>,
+  ) -> Self {
     Self {
       logger,
       state: State::Starting,
+      message_sender,
+      message_receiver,
     }
   }
 
@@ -46,7 +58,7 @@ impl App {
     settings: &Settings,
     dirs: &Dirs,
     input_devices: &mut InputDevices,
-    scripts: &ScriptRepository,
+    scripts: &mut ScriptRepository,
   ) {
     // window
     let window_settings = WindowSettings::new(settings);
@@ -84,6 +96,8 @@ impl App {
       .logger
       .info(format!("target fps = {}", fps_manager.target()));
 
+    scripts.load_scripts(&self.logger);
+
     window.show();
 
     let mut i: f32 = 0.0;
@@ -95,6 +109,12 @@ impl App {
       // frame setup
 
       fps_manager.begin();
+
+      for msg in self.message_receiver.try_recv() {
+        if msg == "quit" {
+          self.state = State::Exiting;
+        }
+      }
 
       window.poll_events(input_devices, &mut imgui_ctx);
 
@@ -148,6 +168,10 @@ impl App {
     }
   }
 
+  pub fn get_msg_sender(&self) -> Sender<String> {
+    self.message_sender.clone()
+  }
+
   fn create_opengl_debug_behavior(child_logger: ChildLogger) -> DebugCallbackBehavior {
     DebugCallbackBehavior::Custom {
       synchronous: true,
@@ -192,8 +216,12 @@ impl App {
 }
 
 impl LuaType<App> {
-  pub fn new(logger: ChildLogger) -> Self {
-    Self::from_type(App::new(logger))
+  pub fn new(
+    logger: ChildLogger,
+    msg_sender: Sender<String>,
+    msg_receiver: Receiver<String>,
+  ) -> Self {
+    Self::from_type(App::new(logger, msg_sender, msg_receiver))
   }
 
   pub fn run(
@@ -201,7 +229,7 @@ impl LuaType<App> {
     settings: &Settings,
     dirs: &Dirs,
     input_devices: &mut InputDevices,
-    scripts: &ScriptRepository,
+    scripts: &mut ScriptRepository,
   ) {
     self
       .obj()

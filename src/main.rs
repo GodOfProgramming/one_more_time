@@ -13,8 +13,8 @@ use crate::{
   util::{ChildLogger, Dirs, MainLogger, RecursiveDirIDIterator, Settings, SpawnableLogger},
 };
 use game::App;
-use mlua::{prelude::*, UserData, UserDataFields};
-use std::{env, path::Path};
+use mlua::Lua;
+use std::{env, path::Path, sync::mpsc};
 
 static SETTINGS_FILE: &str = "config/settings.toml";
 const LOG_LIMIT: usize = 5;
@@ -22,7 +22,9 @@ const LOG_LIMIT: usize = 5;
 fn main() {
   let logger = MainLogger::new(LOG_LIMIT);
 
-  let mut app = LuaType::<App>::new(logger.spawn());
+  let (sender, receiver) = mpsc::channel();
+
+  let mut app = LuaType::<App>::new(logger.spawn(), sender.clone(), receiver);
 
   let cwd = env::current_dir().unwrap(); // unwrap because there's bigger problems if this doesn't work
   let dirs = Dirs::new(cwd);
@@ -31,18 +33,31 @@ fn main() {
 
   let mut input_devices = InputDevices::default();
 
-  let script_repo = ScriptRepository::new(
-    &logger,
-    RecursiveDirIDIterator::from(&dirs.assets.scripts),
-    |lua: &mut Lua| {
-      let _ = lua.globals().set("App", app.clone());
-      let _ = lua
-        .globals()
-        .set("Logger", LuaType::<ChildLogger>::from_type(logger.spawn()));
-    },
-  );
+  let mut script_repo =
+    ScriptRepository::new(&logger, RecursiveDirIDIterator::from(&dirs.assets.scripts));
 
-  app.run(&settings, &dirs, &mut input_devices, &script_repo);
+  // set up some top level lua functions
+  {
+    let moved_sender = sender.clone();
+    script_repo.register_init_fn(Box::new(move |lua: &mut Lua| {
+      let globals = lua.globals();
+      let core_table: mlua::Table = lua.create_table().unwrap();
+
+      let msg_sender = moved_sender.clone();
+      let send_message = lua
+        .create_function(move |_lua, msg: String| {
+          let _ = msg_sender.send(msg);
+          Ok(())
+        })
+        .unwrap();
+      let _ = core_table.set("send_message", send_message);
+
+      let _ = globals.set("App", core_table);
+      let _ = globals.set("Logger", LuaType::<ChildLogger>::from_type(logger.spawn()));
+    }));
+  }
+
+  app.run(&settings, &dirs, &mut input_devices, &mut script_repo);
 
   settings.save(settings_file).unwrap();
 }

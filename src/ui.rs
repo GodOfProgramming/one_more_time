@@ -22,7 +22,7 @@ use lazy_static::lazy_static;
 use log::warn;
 use maplit::hashmap;
 use mlua::Lua;
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 pub use ui_manager::UiManager;
 
 #[macro_export]
@@ -125,7 +125,7 @@ pub fn parse_children<E: UiElementParent>(root: XmlNode) -> UiSubElements {
 
 pub struct UiRoot {
   el: UiSubElement,
-  lua: Option<Rc<Lua>>,
+  lua: Option<Rc<RefCell<Lua>>>,
 }
 
 impl UiRoot {
@@ -153,7 +153,7 @@ impl UiRoot {
 
   fn update(&mut self, ui: &Ui<'_>, settings: &Settings) {
     if let Some(lua) = &self.lua {
-      self.el.update(ui, Some(lua), settings);
+      self.el.update(ui, Some(&lua.borrow()), settings);
     } else {
       self.el.update(ui, None, settings);
     }
