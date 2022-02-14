@@ -1,4 +1,4 @@
 function on_exit()
   Logger:info("quitting game");
-  App.send_message("quit");
+  App:request_exit();
 end

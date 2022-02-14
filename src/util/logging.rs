@@ -185,6 +185,57 @@ impl Logger for MainLogger {
   }
 }
 
+impl LuaType<MainLogger> {
+  fn trace(&self, msg: String) {
+    self.obj().trace(msg);
+  }
+
+  fn debug(&self, msg: String) {
+    self.obj().debug(msg);
+  }
+
+  fn info(&self, msg: String) {
+    self.obj().info(msg);
+  }
+
+  fn warn(&self, msg: String) {
+    self.obj().warn(msg);
+  }
+
+  fn error(&self, msg: String) {
+    self.obj().error(msg);
+  }
+}
+
+impl UserData for LuaType<MainLogger> {
+  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
+    methods.add_method_mut("trace", |_, this, msg: String| {
+      this.trace(msg);
+      Ok(())
+    });
+
+    methods.add_method_mut("debug", |_, this, msg: String| {
+      this.debug(msg);
+      Ok(())
+    });
+
+    methods.add_method_mut("info", |_, this, msg: String| {
+      this.info(msg);
+      Ok(())
+    });
+
+    methods.add_method_mut("warn", |_, this, msg: String| {
+      this.warn(msg);
+      Ok(())
+    });
+
+    methods.add_method_mut("error", |_, this, msg: String| {
+      this.error(msg);
+      Ok(())
+    });
+  }
+}
+
 impl SpawnableLogger<ChildLogger> for MainLogger {
   fn spawn(&self) -> ChildLogger {
     ChildLogger {
@@ -229,23 +280,23 @@ impl SpawnableLogger<ChildLogger> for ChildLogger {
 
 impl LuaType<ChildLogger> {
   fn trace(&self, msg: String) {
-    self.obj().borrow().trace(msg);
+    self.obj().trace(msg);
   }
 
   fn debug(&self, msg: String) {
-    self.obj().borrow().debug(msg);
+    self.obj().debug(msg);
   }
 
   fn info(&self, msg: String) {
-    self.obj().borrow().info(msg);
+    self.obj().info(msg);
   }
 
   fn warn(&self, msg: String) {
-    self.obj().borrow().warn(msg);
+    self.obj().warn(msg);
   }
 
   fn error(&self, msg: String) {
-    self.obj().borrow().error(msg);
+    self.obj().error(msg);
   }
 }
 

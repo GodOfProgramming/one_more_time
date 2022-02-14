@@ -216,29 +216,8 @@ impl App {
 }
 
 impl LuaType<App> {
-  pub fn new(
-    logger: ChildLogger,
-    msg_sender: Sender<String>,
-    msg_receiver: Receiver<String>,
-  ) -> Self {
-    Self::from_type(App::new(logger, msg_sender, msg_receiver))
-  }
-
-  pub fn run(
-    &mut self,
-    settings: &Settings,
-    dirs: &Dirs,
-    input_devices: &mut InputDevices,
-    scripts: &mut ScriptRepository,
-  ) {
-    self
-      .obj()
-      .borrow_mut()
-      .run(settings, dirs, input_devices, scripts);
-  }
-
   fn request_exit(&mut self) {
-    self.obj().borrow_mut().state = State::Exiting;
+    self.obj_mut().state = State::Exiting;
   }
 }
 

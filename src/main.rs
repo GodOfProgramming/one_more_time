@@ -20,11 +20,12 @@ static SETTINGS_FILE: &str = "config/settings.toml";
 const LOG_LIMIT: usize = 5;
 
 fn main() {
-  let logger = MainLogger::new(LOG_LIMIT);
+  let mut logger = MainLogger::new(LOG_LIMIT);
+  let lua_logger = LuaType::<MainLogger>::from_type(&mut logger);
 
   let (sender, receiver) = mpsc::channel();
-
-  let mut app = LuaType::<App>::new(logger.spawn(), sender.clone(), receiver);
+  let mut app = App::new(logger.spawn(), sender, receiver);
+  let lua_app = LuaType::<App>::from_type(&mut app);
 
   let cwd = env::current_dir().unwrap(); // unwrap because there's bigger problems if this doesn't work
   let dirs = Dirs::new(cwd);
@@ -33,29 +34,18 @@ fn main() {
 
   let mut input_devices = InputDevices::default();
 
-  let mut script_repo =
-    ScriptRepository::new(&logger, RecursiveDirIteratorWithID::from(&dirs.assets.scripts));
+  let mut script_repo = ScriptRepository::new(
+    &logger,
+    RecursiveDirIteratorWithID::from(&dirs.assets.scripts),
+  );
 
   // set up some top level lua functions
-  {
-    let moved_sender = sender.clone();
-    script_repo.register_init_fn(Box::new(move |lua: &mut Lua| {
-      let globals = lua.globals();
-      let core_table: mlua::Table = lua.create_table().unwrap();
 
-      let msg_sender = moved_sender.clone();
-      let send_message = lua
-        .create_function(move |_lua, msg: String| {
-          let _ = msg_sender.send(msg);
-          Ok(())
-        })
-        .unwrap();
-      let _ = core_table.set("send_message", send_message);
-
-      let _ = globals.set("App", core_table);
-      let _ = globals.set("Logger", LuaType::<ChildLogger>::from_type(logger.spawn()));
-    }));
-  }
+  script_repo.register_init_fn(Box::new(move |lua: &mut Lua| {
+    let globals = lua.globals();
+    let _ = globals.set("App", lua_app.clone());
+    let _ = globals.set("Logger", lua_logger.clone());
+  }));
 
   app.run(&settings, &dirs, &mut input_devices, &mut script_repo);
 

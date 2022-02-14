@@ -2,21 +2,25 @@ use crate::util::{DirID, Logger};
 use mlua::{prelude::*, UserData, UserDataMethods};
 use std::{cell::RefCell, collections::BTreeMap, fs, ops::DerefMut, path::PathBuf, rc::Rc};
 
-pub struct LuaType<T>(Rc<RefCell<T>>);
+pub struct LuaType<T>(*mut T);
 
 impl<T> LuaType<T> {
-  pub fn from_type(t: T) -> Self {
-    Self(Rc::new(RefCell::new(t)))
+  pub fn from_type(t: *mut T) -> Self {
+    Self(t)
   }
 
-  pub fn obj(&self) -> &Rc<RefCell<T>> {
-    &self.0
+  pub fn obj(&self) -> &T {
+    unsafe { &*self.0 }
+  }
+
+  pub fn obj_mut(&mut self) -> &mut T {
+    unsafe { &mut *self.0 }
   }
 }
 
 impl<T> Clone for LuaType<T> {
   fn clone(&self) -> Self {
-    Self(self.0.clone())
+    Self(self.0)
   }
 }
 
