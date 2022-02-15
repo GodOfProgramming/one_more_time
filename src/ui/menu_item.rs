@@ -1,5 +1,6 @@
 use super::common::*;
 
+#[derive(Clone)]
 pub struct MenuItem {
   name: CString,
   on_click: Option<String>,

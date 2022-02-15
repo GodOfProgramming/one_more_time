@@ -1,5 +1,6 @@
 use super::common::*;
 
+#[derive(Clone)]
 pub struct Menu {
   name: CString,
   children: UiSubElements,

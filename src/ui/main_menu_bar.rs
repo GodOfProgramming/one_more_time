@@ -1,5 +1,6 @@
 use super::common::*;
 
+#[derive(Clone)]
 pub struct MainMenuBar {
   children: UiSubElements,
 }

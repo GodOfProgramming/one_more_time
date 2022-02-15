@@ -1,5 +1,6 @@
 use super::common::*;
 
+#[derive(Clone)]
 pub struct TextBox {
   text: String,
 }
@@ -13,7 +14,7 @@ impl TextBox {
 }
 
 impl UiElement for TextBox {
-  fn update(&mut self, ui: &Ui<'_>, lua: Option<&Lua>, _settings: &Settings) {
+  fn update(&mut self, ui: &Ui<'_>, _lua: Option<&Lua>, _settings: &Settings) {
     ui.text(&self.text);
   }
 }

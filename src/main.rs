@@ -13,8 +13,8 @@ use crate::{
   util::{Dirs, MainLogger, RecursiveDirIteratorWithID, Settings, SpawnableLogger},
 };
 use game::App;
-use mlua::Lua;
-use std::{env, path::Path, sync::mpsc};
+use mlua::{LightUserData, Lua, Value};
+use std::{env, ffi::c_void, path::Path, sync::mpsc};
 
 static SETTINGS_FILE: &str = "config/settings.toml";
 const LOG_LIMIT: usize = 5;
@@ -26,6 +26,7 @@ fn main() {
   let (sender, receiver) = mpsc::channel();
   let mut app = App::new(logger.spawn(), sender, receiver);
   let lua_app = app.create_lua_type();
+  let lua_app2 = Value::LightUserData(LightUserData(&mut app as *mut App as *mut c_void));
 
   let cwd = env::current_dir().unwrap(); // unwrap because there's bigger problems if this doesn't work
   let dirs = Dirs::new(cwd);
@@ -44,6 +45,7 @@ fn main() {
   script_repo.register_init_fn(Box::new(move |lua: &mut Lua| {
     let globals = lua.globals();
     let _ = globals.set("App", lua_app);
+    let _ = globals.set("App2", lua_app2.clone());
     let _ = globals.set("Logger", lua_logger);
   }));
 

@@ -1,5 +1,6 @@
 use super::common::*;
 
+#[derive(Clone)]
 pub struct Window {
   title: CString,
   transparent: bool,

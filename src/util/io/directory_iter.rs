@@ -59,7 +59,7 @@ pub struct RecursiveDirIteratorWithID {
 
 impl From<&PathBuf> for RecursiveDirIteratorWithID {
   fn from(path: &PathBuf) -> Self {
-    let mut v = Vec::new();
+    let mut dirs = Vec::new();
 
     for result in WalkDir::new(path) {
       let entry: DirEntry = result.unwrap();
@@ -69,11 +69,11 @@ impl From<&PathBuf> for RecursiveDirIteratorWithID {
         entry_cpy.pop();
         let last = entry.path().file_stem().unwrap();
         let id = entry_cpy.join(last);
-        v.push((entry.path().to_path_buf(), DirID::from(id)));
+        dirs.push((entry.path().to_path_buf(), DirID::from(id)));
       }
     }
 
-    Self { dirs: v, idx: 0 }
+    Self { dirs, idx: 0 }
   }
 }
 

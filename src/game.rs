@@ -17,7 +17,7 @@ use glium::debug::DebugCallbackBehavior;
 use glium::debug::{MessageType, Severity, Source};
 use glium::Surface;
 use imgui_glium_renderer::imgui;
-use mlua::{UserData, UserDataFields, UserDataMethods};
+use mlua::{LightUserData, UserData, UserDataFields, UserDataMethods, Value};
 use std::{
   env,
   path::Path,
@@ -85,7 +85,7 @@ impl App {
 
     let mut ui_manager = UiManager::new(
       &self.logger,
-      RecursiveDirIterator::iterate_with_prefix(&dirs.assets.ui),
+      RecursiveDirIteratorWithID::from(&dirs.assets.ui),
       scripts,
     );
 
@@ -97,6 +97,8 @@ impl App {
       .info(format!("target fps = {}", fps_manager.target()));
 
     scripts.load_scripts(&self.logger);
+
+    ui_manager.open("test_bar", Value::Nil);
 
     window.show();
 
@@ -110,7 +112,7 @@ impl App {
 
       fps_manager.begin();
 
-      for msg in self.message_receiver.try_recv() {
+      while let Ok(msg) = self.message_receiver.try_recv() {
         if msg == "quit" {
           self.state = State::Exiting;
         }
@@ -227,6 +229,15 @@ impl UserData for LuaType<App> {
   fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
     methods.add_method_mut("request_exit", |_, this, _: ()| {
       this.request_exit();
+      Ok(())
+    });
+  }
+}
+
+impl UserData for App {
+  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
+    methods.add_method_mut("request_exit", |_, this, _: ()| {
+      this.state = State::Exiting;
       Ok(())
     });
   }

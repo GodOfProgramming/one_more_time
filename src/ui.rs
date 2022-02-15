@@ -14,14 +14,15 @@ pub mod components {
 }
 
 use crate::{
-  scripting::ScriptRepository,
+  scripting::{LuaType, LuaTypeTrait, ScriptRepository},
   util::{Logger, Settings, XmlNode},
 };
+use dyn_clone::DynClone;
 use imgui_glium_renderer::imgui::Ui;
 use lazy_static::lazy_static;
 use log::warn;
 use maplit::hashmap;
-use mlua::Lua;
+use mlua::{prelude::*, UserData, UserDataMethods, Value};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 pub use ui_manager::UiManager;
 
@@ -86,21 +87,22 @@ pub type UiSubElements = Vec<UiSubElement>;
 pub type SubElementCreator = fn(XmlNode) -> UiSubElement;
 pub type SubElementMap = HashMap<&'static str, SubElementCreator>;
 
-pub trait UiElement {
-  fn update(&mut self, ui: &Ui<'_>, lua: Option<&Lua>, settings: &Settings);
+pub trait UiElement: DynClone {
+  fn update(&mut self, _ui: &Ui<'_>, _lua: Option<&Lua>, _settings: &Settings) {
+    panic!("'update' unimplemented");
+  }
 }
+
+dyn_clone::clone_trait_object!(UiElement);
 
 pub trait UiElementParent {
   fn valid_children() -> &'static SubElementMap;
 }
 
+#[derive(Clone)]
 struct EmptyUi;
 
-impl UiElement for EmptyUi {
-  fn update(&mut self, _: &Ui<'_>, lua: Option<&Lua>, _: &Settings) {
-    panic!("'update' unimplemented for EmptyUi")
-  }
-}
+impl UiElement for EmptyUi {}
 
 pub fn parse_children<E: UiElementParent>(root: XmlNode) -> UiSubElements {
   let parse_child = |root: XmlNode| -> Option<UiSubElement> {
@@ -123,14 +125,14 @@ pub fn parse_children<E: UiElementParent>(root: XmlNode) -> UiSubElements {
   children
 }
 
-pub struct UiRoot {
+pub struct UiTemplate {
   el: UiSubElement,
   lua: Option<Rc<RefCell<Lua>>>,
 }
 
-impl UiRoot {
+impl UiTemplate {
   pub fn new<L: Logger>(node: XmlNode, logger: &L, scripts: &ScriptRepository) -> Self {
-    let mut root = UiRoot::default();
+    let mut root = UiTemplate::default();
 
     for node in node.children {
       if node.name == "script" {
@@ -151,25 +153,27 @@ impl UiRoot {
     root
   }
 
-  fn update(&mut self, ui: &Ui<'_>, settings: &Settings) {
-    if let Some(lua) = &self.lua {
-      self.el.update(ui, Some(&lua.borrow()), settings);
-    } else {
-      self.el.update(ui, None, settings);
-    }
+  pub fn create_component(&self, data: Value) -> UiComponent {
+    let mut component = UiComponent::new(self.lua.clone());
+
+    component.el = self.el.clone();
+
+    component.initialize(data);
+
+    component
   }
 }
 
-impl Default for UiRoot {
+impl Default for UiTemplate {
   fn default() -> Self {
-    Self {
+    UiTemplate {
       el: Box::new(EmptyUi),
       lua: None,
     }
   }
 }
 
-impl UiElementParent for UiRoot {
+impl UiElementParent for UiTemplate {
   fn valid_children() -> &'static SubElementMap {
     use types::{MAIN_MENU_BAR, WINDOW};
 
@@ -178,5 +182,60 @@ impl UiElementParent for UiRoot {
     }
 
     &MAP
+  }
+}
+
+pub struct UiComponent {
+  el: UiSubElement,
+  lua: Option<Rc<RefCell<Lua>>>,
+}
+
+impl UiComponent {
+  fn new(lua: Option<Rc<RefCell<Lua>>>) -> Self {
+    Self {
+      lua,
+      el: Box::new(EmptyUi),
+    }
+  }
+
+  fn update(&mut self, ui: &Ui<'_>, settings: &Settings) {
+    if let Some(lua) = &self.lua {
+      self.el.update(ui, Some(&lua.borrow()), settings);
+    } else {
+      self.el.update(ui, None, settings);
+    }
+  }
+
+  fn initialize(&self, data: Value) {
+    if let Some(lua) = &self.lua {
+      let lua = lua.borrow();
+      let globals = lua.globals();
+      if let Ok(true) = globals.contains_key("initialize") {
+        let res: Result<(), mlua::Error> = globals.call_function("initialize", data);
+        if let Err(e) = res {
+          println!("error {}", e);
+        }
+      }
+    }
+  }
+
+  fn get_element_by_id(&self, id: String) -> Option<LuaType<UiComponent>> {
+    None // TODO
+  }
+}
+
+impl LuaTypeTrait for UiComponent {}
+
+impl LuaType<UiComponent> {
+  fn get_element_by_id(&self, id: String) -> Option<LuaType<UiComponent>> {
+    self.obj().get_element_by_id(id)
+  }
+}
+
+impl UserData for LuaType<UiComponent> {
+  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
+    methods.add_method_mut("get_element_by_id", |_, this, id: String| {
+      Ok(this.get_element_by_id(id))
+    });
   }
 }
