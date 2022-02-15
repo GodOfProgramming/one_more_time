@@ -1,4 +1,4 @@
-use crate::scripting::LuaType;
+use crate::scripting::{LuaType, LuaTypeTrait};
 use fern::InitError;
 use glium::debug::{MessageType, Severity, Source};
 use log::LevelFilter;
@@ -184,6 +184,8 @@ impl Logger for MainLogger {
     self.sender.send(LogMessage::Error(msg)).ok();
   }
 }
+
+impl LuaTypeTrait for MainLogger {}
 
 impl LuaType<MainLogger> {
   fn trace(&self, msg: String) {

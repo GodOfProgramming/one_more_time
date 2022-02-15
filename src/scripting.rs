@@ -1,6 +1,6 @@
 use crate::util::{DirID, Logger};
-use mlua::{prelude::*, UserData, UserDataMethods};
-use std::{cell::RefCell, collections::BTreeMap, fs, ops::DerefMut, path::PathBuf, rc::Rc};
+use mlua::prelude::*;
+use std::{cell::RefCell, collections::BTreeMap, fs, path::PathBuf, rc::Rc};
 
 pub struct LuaType<T>(*mut T);
 
@@ -21,6 +21,17 @@ impl<T> LuaType<T> {
 impl<T> Clone for LuaType<T> {
   fn clone(&self) -> Self {
     Self(self.0)
+  }
+}
+
+impl<T> Copy for LuaType<T> {}
+
+pub trait LuaTypeTrait {
+  fn create_lua_type(&mut self) -> LuaType<Self>
+  where
+    Self: Sized,
+  {
+    LuaType::from_type(self)
   }
 }
 

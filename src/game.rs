@@ -4,7 +4,7 @@ use crate::{
     keyboard::{Key, KeyAction},
     InputCheck, InputDevices,
   },
-  scripting::{LuaType, ScriptRepository},
+  scripting::{LuaType, LuaTypeTrait, ScriptRepository},
   ui::UiManager,
   util::{
     ChildLogger, Dirs, FpsManager, Logger, MainLogger, RecursiveDirIterator,
@@ -214,6 +214,8 @@ impl App {
     }
   }
 }
+
+impl LuaTypeTrait for App {}
 
 impl LuaType<App> {
   fn request_exit(&mut self) {
