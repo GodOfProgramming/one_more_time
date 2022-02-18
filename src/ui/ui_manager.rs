@@ -1,4 +1,4 @@
-use super::{UiComponent, UiTemplate};
+use super::{UiComponentPtr, UiTemplate};
 use crate::{
   scripting::{LuaType, LuaTypeTrait, ScriptRepository},
   util::{DirID, Logger, Settings, XmlNode},
@@ -15,7 +15,7 @@ static mut NEXT_ID: usize = 0;
 #[derive(Default)]
 pub struct UiManager {
   templates: BTreeMap<DirID, UiTemplate>,
-  open_ui: BTreeMap<UiHandle, UiComponent>,
+  open_ui: BTreeMap<String, UiComponentPtr>,
 }
 
 impl UiManager {
@@ -50,52 +50,59 @@ impl UiManager {
     manager
   }
 
+  #[profiling::function]
   pub fn update(&mut self, ui: &Ui<'_>, settings: &Settings) {
     for element in self.open_ui.values_mut() {
-      element.update(ui, settings);
+      element.component().update(ui, settings);
     }
   }
 
-  pub fn open(&mut self, id: &str, data: Value) {
+  pub fn open(&mut self, id: &str, name: &str, data: Value) -> Option<UiComponentPtr> {
     if let Some(tmpl) = self.templates.get(&DirID::from(id)) {
-      println!("opening {}", id);
-      self
-        .open_ui
-        .insert(UiHandle::next(), tmpl.create_component(data));
-      println!("opened {}", id);
+      let component = tmpl.create_component(data);
+      self.open_ui.insert(name.to_string(), component.clone());
+      Some(component)
+    } else {
+      None
     }
+  }
+
+  pub fn get(&self, name: &str) -> Option<UiComponentPtr> {
+    self.open_ui.get(name).cloned()
   }
 }
 
 impl LuaTypeTrait for UiManager {}
 
 impl LuaType<UiManager> {
-  fn open(&mut self, id: &str, data: Value) {
-    self.obj_mut().open(id, data);
+  fn open(&mut self, id: &str, name: String, data: Value) -> Option<UiComponentPtr> {
+    self.obj_mut().open(id, &name, data)
+  }
+
+  fn get(&self, name: &str) -> Option<UiComponentPtr> {
+    self.obj().get(name)
   }
 }
 
 impl UserData for LuaType<UiManager> {
   fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-    methods.add_method_mut("open", |_, this, (id, data): (String, Value)| {
-      this.open(&id, data);
-      Ok(())
+    methods.add_method_mut(
+      "open",
+      |_, this, (id, name, data): (String, String, Value)| {
+        if let Some(mut ptr) = this.open(&id, name, data) {
+          Ok(Some(ptr.component().create_lua_type()))
+        } else {
+          Ok(None)
+        }
+      },
+    );
+
+    methods.add_method_mut("get", |_, this, name: String| {
+      if let Some(mut ptr) = this.get(&name) {
+        Ok(Some(ptr.component().create_lua_type()))
+      } else {
+        Ok(None)
+      }
     });
-  }
-}
-
-#[derive(Default, Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
-struct UiHandle {
-  id: usize,
-}
-
-impl UiHandle {
-  fn next() -> Self {
-    let id: usize;
-    unsafe {
-      id = NEXT_ID;
-      NEXT_ID += 1;
-    };
-    Self { id }
   }
 }

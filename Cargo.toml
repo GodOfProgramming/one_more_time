@@ -44,3 +44,7 @@ v8 = "0.38.1"
 mlua = { version = "0.7.3", features = ["lua54", "vendored"] }
 
 double = "0.2.4"
+
+profiling = "1.0.5"
+puffin = "0.13.1"
+puffin-imgui = "0.16.0"

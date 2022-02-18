@@ -2,6 +2,8 @@
   <script id="test.test_bar" />
   <main-menu-bar>
     <menu name="Debug">
+      <menu-item name="Test" click="test_fn"></menu-item>
+      <menu-item name="Rename" click="rename_window"></menu-item>
       <menu-item name="Exit" click="on_exit"></menu-item>
     </menu>
   </main-menu-bar>

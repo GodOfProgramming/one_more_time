@@ -24,8 +24,8 @@ impl Sdl2Window {
     let video_subsystem = sdl_context.video().unwrap();
     let mut window_builder: WindowBuilder = video_subsystem.window(
       &settings.title,
-      settings.dimentions.x,
-      settings.dimentions.y,
+      settings.dimensions.x,
+      settings.dimensions.y,
     );
 
     window_builder.position_centered();

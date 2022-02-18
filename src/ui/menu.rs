@@ -2,12 +2,14 @@ use super::common::*;
 
 #[derive(Clone)]
 pub struct Menu {
+  id: Option<String>,
   name: CString,
   children: Vec<Ui>,
 }
 
 impl Menu {
   pub fn new(mut root: XmlNode) -> Self {
+    let id = root.attribs.remove("id");
     let name = root
       .attribs
       .remove("name")
@@ -15,6 +17,7 @@ impl Menu {
       .unwrap_or_default();
 
     Self {
+      id,
       name,
       children: super::parse_children::<Self>(root),
     }
@@ -22,6 +25,14 @@ impl Menu {
 }
 
 impl UiElement for Menu {
+  fn kind(&self) -> String {
+    String::from("Menu")
+  }
+
+  fn id(&self) -> Option<String> {
+    self.id.clone()
+  }
+
   fn update(&mut self, ui: &imgui::Ui<'_>, lua: Option<&Lua>, settings: &Settings) {
     let im_str = unsafe { ImStr::from_cstr_unchecked(&self.name) };
     let children = &mut self.children;
@@ -31,6 +42,10 @@ impl UiElement for Menu {
       }
       menu.end();
     }
+  }
+
+  fn dupe(&self) -> UiElementPtr {
+    Rc::new(RefCell::new(self.clone()))
   }
 }
 
@@ -45,8 +60,8 @@ impl UiElementParent for Menu {
   }
 }
 
-impl Into<Ui> for Menu {
-  fn into(self) -> Ui {
-    Ui(Rc::new(RefCell::new(self)))
+impl From<Menu> for Ui {
+  fn from(ui: Menu) -> Self {
+    Ui(Rc::new(RefCell::new(ui)))
   }
 }

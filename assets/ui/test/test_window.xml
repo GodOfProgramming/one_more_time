@@ -1,5 +1,5 @@
 <ui>
-  <window decorated="false" transparent="true" title="Test">
+  <window decorated="false" transparent="true" title="Test" id="test_window">
     <textbox>example 1</textbox>
     <textbox>example 2</textbox>
     <textbox>example 3</textbox>

@@ -2,6 +2,7 @@ use super::common::*;
 
 #[derive(Clone)]
 pub struct Window {
+  id: Option<String>,
   title: CString,
   transparent: bool,
   decorated: bool,
@@ -10,6 +11,8 @@ pub struct Window {
 
 impl Window {
   pub fn new(mut root: XmlNode) -> Self {
+    let id = root.attribs.remove("id");
+
     let title = root
       .attribs
       .remove("title")
@@ -29,6 +32,7 @@ impl Window {
       .unwrap_or_default();
 
     Self {
+      id,
       title,
       transparent,
       decorated,
@@ -38,6 +42,38 @@ impl Window {
 }
 
 impl UiElement for Window {
+  fn kind(&self) -> String {
+    String::from("Window")
+  }
+
+  fn id(&self) -> Option<String> {
+    self.id.clone()
+  }
+
+  fn set_attrib(&mut self, attrib: String, value: Value) {
+    println!("setting {} to {:?}", attrib, value);
+    match attrib.as_str() {
+      "title" => {
+        println!("found title");
+        if let Value::String(s) = value {
+          println!("is string");
+          self.title = string::into_cstring(s.to_str().unwrap());
+        }
+      }
+      "transparent" => {
+        if let Value::Boolean(b) = value {
+          self.transparent = b;
+        }
+      }
+      "decorated" => {
+        if let Value::Boolean(b) = value {
+          self.decorated = b;
+        }
+      }
+      _ => (),
+    }
+  }
+
   fn update(&mut self, ui: &imgui::Ui<'_>, lua: Option<&Lua>, settings: &Settings) {
     let im_str = unsafe { ImStr::from_cstr_unchecked(&self.title) };
     let children = &mut self.children;
@@ -50,6 +86,10 @@ impl UiElement for Window {
           child.update(ui, lua, settings);
         }
       });
+  }
+
+  fn dupe(&self) -> UiElementPtr {
+    Rc::new(RefCell::new(self.clone()))
   }
 }
 
@@ -65,8 +105,8 @@ impl UiElementParent for Window {
   }
 }
 
-impl Into<Ui> for Window {
-  fn into(self) -> Ui {
-    Ui(Rc::new(RefCell::new(self)))
+impl From<Window> for Ui {
+  fn from(ui: Window) -> Self {
+    Ui(Rc::new(RefCell::new(ui)))
   }
 }

@@ -5,39 +5,42 @@ use crate::input::{
 };
 use crate::math::*;
 use crate::util::Settings;
-use glfw::{Context, Glfw, OpenGlProfileHint, Window as GlfwWindow, WindowEvent, WindowHint};
+use glfw::{
+  Context, Glfw, Monitor, OpenGlProfileHint, VidMode, Window as GlfwWindow, WindowEvent, WindowHint,
+};
 use glium::backend::Backend;
 use glm::U32Vec2;
 use imgui_glium_renderer::imgui;
-use log::debug;
 use std::cell::RefCell;
 use std::fmt::{Display, Error, Formatter};
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 
 pub struct WindowSettings {
-  title: String,
-  dimentions: U32Vec2,
+  pub title: String,
+  pub dimensions: U32Vec2,
+  pub mode: WindowMode,
 }
 
 impl WindowSettings {
   pub fn new(settings: &Settings) -> Self {
     Self {
       title: settings.display.title.clone(),
-      dimentions: glm::vec2(settings.display.width, settings.display.height),
+      dimensions: settings.display.window,
+      mode: settings.display.mode,
     }
   }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum WindowMode {
   Fullscreen,
   Windowed,
-  Borderless,
 }
 
 impl Default for WindowMode {
   fn default() -> Self {
-    WindowMode::Borderless
+    WindowMode::Windowed
   }
 }
 
@@ -46,7 +49,6 @@ impl Display for WindowMode {
     match self {
       WindowMode::Fullscreen => write!(f, "fullscreen"),
       WindowMode::Windowed => write!(f, "windowed"),
-      WindowMode::Borderless => write!(f, "borderless"),
     }
   }
 }
@@ -54,9 +56,7 @@ impl Display for WindowMode {
 impl From<&String> for WindowMode {
   fn from(string: &String) -> Self {
     match string.as_str() {
-      "windowed" => WindowMode::Windowed,
       "fullscreen" => WindowMode::Fullscreen,
-      "borderless" => WindowMode::Borderless,
       _ => WindowMode::Windowed,
     }
   }
@@ -72,7 +72,7 @@ pub struct Window {
 }
 
 impl Window {
-  pub fn new(settings: WindowSettings) -> (Self, WindowDrawInterface) {
+  pub fn new(settings: &mut WindowSettings) -> (Self, WindowDrawInterface) {
     let mut glfw_handle = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 
     glfw_handle.default_window_hints();
@@ -84,14 +84,36 @@ impl Window {
     glfw_handle.window_hint(WindowHint::DoubleBuffer(true));
     glfw_handle.window_hint(WindowHint::ContextNoError(true));
 
-    let (mut window_handle, event_stream) = glfw_handle
-      .create_window(
-        settings.dimentions.x,
-        settings.dimentions.y,
-        &settings.title,
-        glfw::WindowMode::Windowed,
-      )
-      .unwrap();
+    let (mut window_handle, event_stream) =
+      glfw_handle.with_primary_monitor(|glfw_handle: &mut Glfw, monitor: Option<&Monitor>| {
+        let (mode, width, height) = match settings.mode {
+          WindowMode::Fullscreen => {
+            let vid_mode: VidMode = monitor.unwrap().get_video_mode().unwrap();
+            glfw_handle.window_hint(WindowHint::RedBits(Some(vid_mode.red_bits)));
+            glfw_handle.window_hint(WindowHint::BlueBits(Some(vid_mode.blue_bits)));
+            glfw_handle.window_hint(WindowHint::GreenBits(Some(vid_mode.green_bits)));
+            glfw_handle.window_hint(WindowHint::RefreshRate(Some(vid_mode.refresh_rate)));
+
+            settings.dimensions.x = vid_mode.width;
+            settings.dimensions.y = vid_mode.height;
+
+            (
+              glfw::WindowMode::FullScreen(monitor.unwrap()),
+              vid_mode.width,
+              vid_mode.height,
+            )
+          }
+          _ => (
+            glfw::WindowMode::Windowed,
+            settings.dimensions.x,
+            settings.dimensions.y,
+          ),
+        };
+
+        glfw_handle
+          .create_window(width, height, &settings.title, mode)
+          .unwrap()
+      });
 
     window_handle.set_all_polling(true);
 

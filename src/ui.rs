@@ -14,7 +14,7 @@ pub mod components {
 }
 
 pub mod common {
-  pub use super::{types, SubElementMap, Ui, UiElement, UiElementParent};
+  pub use super::{types, SubElementMap, Ui, UiElement, UiElementParent, UiElementPtr};
   pub use crate::{
     type_map,
     util::{convert::string, ChildLogger, Settings, XmlNode},
@@ -22,8 +22,8 @@ pub mod common {
   pub use imgui_glium_renderer::imgui::{self, ImStr};
   pub use lazy_static::lazy_static;
   pub use maplit::hashmap;
-  pub use mlua::prelude::*;
-  pub use std::{cell::RefCell, ffi::CString, rc::Rc};
+  pub use mlua::{prelude::*, Value};
+  pub use std::{cell::RefCell, collections::BTreeMap, ffi::CString, rc::Rc};
 }
 
 use crate::{
@@ -89,10 +89,28 @@ macro_rules! type_map {
 
 pub type SubElementCreator = fn(XmlNode) -> Ui;
 pub type SubElementMap = HashMap<&'static str, SubElementCreator>;
+pub type UiElementPtr = Rc<RefCell<dyn UiElement>>;
 
 pub trait UiElement: DynClone {
+  fn kind(&self) -> String;
+
+  fn id(&self) -> Option<String>;
+
+  fn set_attrib(&mut self, _attrib: String, _value: Value) {
+    panic!("'set_attrib' not implemented")
+  }
+
   fn update(&mut self, _ui: &imgui::Ui<'_>, _lua: Option<&Lua>, _settings: &Settings) {
-    panic!("'update' unimplemented");
+    panic!("'update' not implemented");
+  }
+
+  fn dupe(&self) -> UiElementPtr;
+
+  fn clone_ui(&self, id_map: &mut BTreeMap<String, Ui>) -> Ui {
+    if let Some(id) = self.id() {
+      id_map.insert(id, Ui(self.dupe()));
+    }
+    Ui(self.dupe())
   }
 }
 
@@ -103,21 +121,71 @@ pub trait UiElementParent {
 }
 
 #[derive(Clone)]
-pub struct Ui(Rc<RefCell<dyn UiElement>>);
+pub struct Ui(UiElementPtr);
+
+impl Ui {
+  fn el(&self) -> &dyn UiElement {
+    unsafe { &*self.0.as_ptr() }
+  }
+
+  fn el_mut(&mut self) -> &mut dyn UiElement {
+    unsafe { &mut *self.0.as_ptr() }
+  }
+}
 
 impl UiElement for Ui {
+  fn kind(&self) -> String {
+    self.el().kind()
+  }
+
+  fn id(&self) -> Option<String> {
+    self.el().id()
+  }
+
+  fn set_attrib(&mut self, attrib: String, value: Value) {
+    self.el_mut().set_attrib(attrib, value);
+  }
+
   fn update(&mut self, ui: &imgui::Ui<'_>, lua: Option<&Lua>, settings: &Settings) {
-    self.0.borrow_mut().update(ui, lua, settings);
+    self.el_mut().update(ui, lua, settings);
+  }
+
+  fn dupe(&self) -> UiElementPtr {
+    self.el().dupe()
   }
 }
 
 impl LuaType<Ui> {}
 
+impl UiElement for LuaType<Ui> {
+  fn kind(&self) -> String {
+    self.obj().kind()
+  }
+
+  fn id(&self) -> Option<String> {
+    self.obj().id()
+  }
+
+  fn set_attrib(&mut self, attrib: String, value: Value) {
+    self.obj_mut().set_attrib(attrib, value);
+  }
+
+  fn dupe(&self) -> UiElementPtr {
+    self.obj().dupe()
+  }
+}
+
 impl LuaTypeTrait for Ui {}
 
-impl UserData for Ui {}
-
-impl UserData for LuaType<Ui> {}
+impl UserData for LuaType<Ui> {
+  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
+    methods.add_method_mut("kind", |_, this, _: ()| Ok(this.kind()));
+    methods.add_method_mut("set_attrib", |_, this, (name, value): (String, Value)| {
+      this.set_attrib(name, value);
+      Ok(())
+    });
+  }
+}
 
 pub fn parse_children<E: UiElementParent>(root: XmlNode) -> Vec<Ui> {
   let parse_child = |root: XmlNode| -> Option<Ui> {
@@ -168,14 +236,14 @@ impl UiTemplate {
     root
   }
 
-  pub fn create_component(&self, data: Value) -> UiComponent {
-    let mut component = UiComponent::new(self.lua.clone());
-
-    component.el = self.el.clone();
+  pub fn create_component(&self, data: Value) -> UiComponentPtr {
+    let mut id_map = BTreeMap::new();
+    let el = self.el.clone_ui(&mut id_map);
+    let component = UiComponent::new(self.lua.clone(), el, id_map);
 
     component.initialize(data);
 
-    component
+    UiComponentPtr::new(component)
   }
 }
 
@@ -207,17 +275,21 @@ pub struct UiComponent {
 }
 
 impl UiComponent {
-  fn new(lua: Option<Rc<RefCell<Lua>>>) -> Self {
+  fn new(lua: Option<Rc<RefCell<Lua>>>, el: Ui, element_mapping: BTreeMap<String, Ui>) -> Self {
     Self {
       lua,
-      el: EmptyUi::default().into(),
-      element_mapping: BTreeMap::new(),
+      el,
+      element_mapping,
     }
   }
 
   fn update(&mut self, ui: &imgui::Ui<'_>, settings: &Settings) {
+    let lua_type = self.create_lua_type();
     if let Some(lua) = &self.lua {
-      self.el.update(ui, Some(&lua.borrow()), settings);
+      unsafe {
+        let _ = (&*lua.as_ptr()).globals().set("document", lua_type);
+        self.el.update(ui, Some(&*lua.as_ptr()), settings);
+      }
     } else {
       self.el.update(ui, None, settings);
     }
@@ -244,13 +316,13 @@ impl UiComponent {
   }
 }
 
-impl LuaTypeTrait for UiComponent {}
-
 impl LuaType<UiComponent> {
   fn get_element_by_id(&mut self, id: String) -> Option<LuaType<Ui>> {
     self.obj_mut().get_element_by_id(id)
   }
 }
+
+impl LuaTypeTrait for UiComponent {}
 
 impl UserData for LuaType<UiComponent> {
   fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
@@ -260,13 +332,38 @@ impl UserData for LuaType<UiComponent> {
   }
 }
 
+#[derive(Clone)]
+pub struct UiComponentPtr(Rc<RefCell<UiComponent>>);
+
+impl UiComponentPtr {
+  pub fn new(ui: UiComponent) -> Self {
+    Self(Rc::new(RefCell::new(ui)))
+  }
+
+  pub fn component(&mut self) -> &mut UiComponent {
+    unsafe { &mut *self.0.as_ptr() }
+  }
+}
+
 #[derive(Default, Clone)]
 struct EmptyUi;
 
-impl UiElement for EmptyUi {}
+impl UiElement for EmptyUi {
+  fn kind(&self) -> String {
+    String::from("EmptyUi")
+  }
 
-impl Into<Ui> for EmptyUi {
-  fn into(self) -> Ui {
-    Ui(Rc::new(RefCell::new(self)))
+  fn id(&self) -> Option<String> {
+    None
+  }
+
+  fn dupe(&self) -> UiElementPtr {
+    Rc::new(RefCell::new(EmptyUi))
+  }
+}
+
+impl From<EmptyUi> for Ui {
+  fn from(ui: EmptyUi) -> Self {
+    Ui(Rc::new(RefCell::new(ui)))
   }
 }

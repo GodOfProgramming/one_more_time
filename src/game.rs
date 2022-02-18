@@ -17,7 +17,7 @@ use glium::debug::DebugCallbackBehavior;
 use glium::debug::{MessageType, Severity, Source};
 use glium::Surface;
 use imgui_glium_renderer::imgui;
-use mlua::{LightUserData, UserData, UserDataFields, UserDataMethods, Value};
+use mlua::{LightUserData, Lua, UserData, UserDataFields, UserDataMethods, Value};
 use std::{
   env,
   path::Path,
@@ -61,8 +61,8 @@ impl App {
     scripts: &mut ScriptRepository,
   ) {
     // window
-    let window_settings = WindowSettings::new(settings);
-    let (window, draw_interface) = Window::new(window_settings);
+    let mut window_settings = WindowSettings::new(settings);
+    let (window, draw_interface) = Window::new(&mut window_settings);
 
     // opengl
     let behavior = App::create_opengl_debug_behavior(self.logger.spawn());
@@ -77,7 +77,6 @@ impl App {
 
     // ui
     let mut imgui_ctx = imgui_glium_renderer::imgui::Context::create();
-    imgui_ctx.set_ini_filename(None);
     imgui_ctx.set_log_filename(None);
     let mut imgui_render =
       imgui_glium_renderer::Renderer::init(&mut imgui_ctx, &gl_context.clone()).unwrap();
@@ -88,6 +87,12 @@ impl App {
       RecursiveDirIteratorWithID::from(&dirs.assets.ui),
       scripts,
     );
+    let lua_ui_manager = ui_manager.create_lua_type();
+
+    scripts.register_init_fn(Box::new(move |lua: &mut Lua| {
+      let globals = lua.globals();
+      let _ = globals.set("UiManager", lua_ui_manager);
+    }));
 
     // game
     let mut fps_manager = FpsManager::new(settings.graphics.fps.into());
@@ -98,12 +103,16 @@ impl App {
 
     scripts.load_scripts(&self.logger);
 
-    ui_manager.open("test_bar", Value::Nil);
+    ui_manager.open("test.test_bar", "debug_main_menu_bar", Value::Nil);
+
+    let mut puffin_ui = puffin_imgui::ProfilerUi::default();
 
     window.show();
 
     let mut i: f32 = 0.0;
     'main: loop {
+      puffin::GlobalProfiler::lock().new_frame();
+
       if self.state == State::Exiting {
         break 'main;
       }
@@ -138,7 +147,7 @@ impl App {
 
       let mut frame = glium::Frame::new(
         gl_context.clone(),
-        (settings.display.width, settings.display.height),
+        (settings.display.window.x, settings.display.window.y),
       );
 
       // draw
@@ -146,11 +155,13 @@ impl App {
       frame.clear_color(i.sin(), 0.30, 1.0 - i.sin(), 1.0);
 
       imgui_ctx.io_mut().display_size = [
-        settings.display.width as f32,
-        settings.display.height as f32,
+        window_settings.dimensions.x as f32,
+        window_settings.dimensions.y as f32,
       ];
 
       let ui: imgui::Ui<'_> = imgui_ctx.frame();
+
+      puffin_ui.window(&ui);
 
       ui_manager.update(&ui, settings);
 
@@ -217,27 +228,18 @@ impl App {
   }
 }
 
-impl LuaTypeTrait for App {}
-
 impl LuaType<App> {
   fn request_exit(&mut self) {
     self.obj_mut().state = State::Exiting;
   }
 }
 
+impl LuaTypeTrait for App {}
+
 impl UserData for LuaType<App> {
   fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
     methods.add_method_mut("request_exit", |_, this, _: ()| {
       this.request_exit();
-      Ok(())
-    });
-  }
-}
-
-impl UserData for App {
-  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-    methods.add_method_mut("request_exit", |_, this, _: ()| {
-      this.state = State::Exiting;
       Ok(())
     });
   }

@@ -11,7 +11,7 @@ mod keys {
   pub const GRAPHICS: &str = "graphics";
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Settings {
   pub display: DisplaySettings,
   pub graphics: GraphicsSettings,

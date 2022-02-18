@@ -2,12 +2,14 @@ use super::common::*;
 
 #[derive(Clone)]
 pub struct MenuItem {
+  id: Option<String>,
   name: CString,
   on_click: Option<String>,
 }
 
 impl MenuItem {
   pub fn new(mut root: XmlNode) -> Self {
+    let id = root.attribs.remove("id");
     let name = root
       .attribs
       .remove("name")
@@ -16,11 +18,19 @@ impl MenuItem {
 
     let on_click = root.attribs.remove("click");
 
-    Self { name, on_click }
+    Self { id, name, on_click }
   }
 }
 
 impl UiElement for MenuItem {
+  fn kind(&self) -> String {
+    String::from("MenuItem")
+  }
+
+  fn id(&self) -> Option<String> {
+    self.id.clone()
+  }
+
   fn update(&mut self, ui: &imgui::Ui<'_>, lua: Option<&Lua>, _settings: &Settings) {
     let im_str = unsafe { ImStr::from_cstr_unchecked(&self.name) };
     if imgui::MenuItem::new(im_str).build(ui) {
@@ -34,6 +44,10 @@ impl UiElement for MenuItem {
       }
     }
   }
+
+  fn dupe(&self) -> UiElementPtr {
+    Rc::new(RefCell::new(self.clone()))
+  }
 }
 
 impl UiElementParent for MenuItem {
@@ -46,8 +60,8 @@ impl UiElementParent for MenuItem {
   }
 }
 
-impl Into<Ui> for MenuItem {
-  fn into(self) -> Ui {
-    Ui(Rc::new(RefCell::new(self)))
+impl From<MenuItem> for Ui {
+  fn from(ui: MenuItem) -> Self {
+    Ui(Rc::new(RefCell::new(ui)))
   }
 }

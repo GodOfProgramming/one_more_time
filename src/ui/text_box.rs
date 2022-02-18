@@ -2,20 +2,34 @@ use super::common::*;
 
 #[derive(Clone)]
 pub struct TextBox {
+  id: Option<String>,
   text: String,
 }
 
 impl TextBox {
-  pub fn new(root: XmlNode) -> Self {
+  pub fn new(mut root: XmlNode) -> Self {
+    let id = root.attribs.remove("id");
     let text = root.text.unwrap_or_default();
 
-    Self { text }
+    Self { id, text }
   }
 }
 
 impl UiElement for TextBox {
+  fn kind(&self) -> String {
+    String::from("TextBox")
+  }
+
+  fn id(&self) -> Option<String> {
+    self.id.clone()
+  }
+
   fn update(&mut self, ui: &imgui::Ui<'_>, _lua: Option<&Lua>, _settings: &Settings) {
     ui.text(&self.text);
+  }
+
+  fn dupe(&self) -> UiElementPtr {
+    Rc::new(RefCell::new(self.clone()))
   }
 }
 
@@ -29,8 +43,8 @@ impl UiElementParent for TextBox {
   }
 }
 
-impl Into<Ui> for TextBox {
-  fn into(self) -> Ui {
-    Ui(Rc::new(RefCell::new(self)))
+impl From<TextBox> for Ui {
+  fn from(ui: TextBox) -> Self {
+    Ui(Rc::new(RefCell::new(ui)))
   }
 }

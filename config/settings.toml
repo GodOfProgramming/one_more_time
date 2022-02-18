@@ -1,8 +1,10 @@
 [display]
-height = 720
 title = 'game'
-video_mode = 'borderless'
-width = 1280
+video_mode = 'fullscreen'
+
+[display.window]
+height = 1080
+width = 1920
 
 [graphics]
 fps = 60

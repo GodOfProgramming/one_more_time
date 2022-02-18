@@ -4,6 +4,7 @@ mod keys {
   pub const FPS: &str = "fps";
 }
 
+#[derive(Debug)]
 pub struct GraphicsSettings {
   pub fps: u8,
 }
