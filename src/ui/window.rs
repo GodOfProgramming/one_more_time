@@ -5,7 +5,7 @@ pub struct Window {
   title: CString,
   transparent: bool,
   decorated: bool,
-  children: UiSubElements,
+  children: Vec<Ui>,
 }
 
 impl Window {
@@ -38,7 +38,7 @@ impl Window {
 }
 
 impl UiElement for Window {
-  fn update(&mut self, ui: &Ui<'_>, lua: Option<&Lua>, settings: &Settings) {
+  fn update(&mut self, ui: &imgui::Ui<'_>, lua: Option<&Lua>, settings: &Settings) {
     let im_str = unsafe { ImStr::from_cstr_unchecked(&self.title) };
     let children = &mut self.children;
     imgui::Window::new(&im_str)
@@ -62,5 +62,11 @@ impl UiElementParent for Window {
     }
 
     &MAP
+  }
+}
+
+impl Into<Ui> for Window {
+  fn into(self) -> Ui {
+    Ui(Rc::new(RefCell::new(self)))
   }
 }

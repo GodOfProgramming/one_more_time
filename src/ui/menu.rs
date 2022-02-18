@@ -3,7 +3,7 @@ use super::common::*;
 #[derive(Clone)]
 pub struct Menu {
   name: CString,
-  children: UiSubElements,
+  children: Vec<Ui>,
 }
 
 impl Menu {
@@ -22,7 +22,7 @@ impl Menu {
 }
 
 impl UiElement for Menu {
-  fn update(&mut self, ui: &Ui<'_>, lua: Option<&Lua>, settings: &Settings) {
+  fn update(&mut self, ui: &imgui::Ui<'_>, lua: Option<&Lua>, settings: &Settings) {
     let im_str = unsafe { ImStr::from_cstr_unchecked(&self.name) };
     let children = &mut self.children;
     if let Some(menu) = ui.begin_menu(im_str) {
@@ -42,5 +42,11 @@ impl UiElementParent for Menu {
     }
 
     &MAP
+  }
+}
+
+impl Into<Ui> for Menu {
+  fn into(self) -> Ui {
+    Ui(Rc::new(RefCell::new(self)))
   }
 }

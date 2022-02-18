@@ -2,7 +2,7 @@ use super::common::*;
 
 #[derive(Clone)]
 pub struct MainMenuBar {
-  children: UiSubElements,
+  children: Vec<Ui>,
 }
 
 impl MainMenuBar {
@@ -14,7 +14,7 @@ impl MainMenuBar {
 }
 
 impl UiElement for MainMenuBar {
-  fn update(&mut self, ui: &Ui<'_>, lua: Option<&Lua>, settings: &Settings) {
+  fn update(&mut self, ui: &imgui::Ui<'_>, lua: Option<&Lua>, settings: &Settings) {
     ui.main_menu_bar(|| {
       for child in self.children.iter_mut() {
         child.update(ui, lua, settings);
@@ -31,5 +31,11 @@ impl UiElementParent for MainMenuBar {
     }
 
     &MAP
+  }
+}
+
+impl Into<Ui> for MainMenuBar {
+  fn into(self) -> Ui {
+    Ui(Rc::new(RefCell::new(self)))
   }
 }

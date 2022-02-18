@@ -21,7 +21,7 @@ impl MenuItem {
 }
 
 impl UiElement for MenuItem {
-  fn update(&mut self, ui: &Ui<'_>, lua: Option<&Lua>, _settings: &Settings) {
+  fn update(&mut self, ui: &imgui::Ui<'_>, lua: Option<&Lua>, _settings: &Settings) {
     let im_str = unsafe { ImStr::from_cstr_unchecked(&self.name) };
     if imgui::MenuItem::new(im_str).build(ui) {
       if let Some(on_click) = &self.on_click {
@@ -43,5 +43,11 @@ impl UiElementParent for MenuItem {
     }
 
     &MAP
+  }
+}
+
+impl Into<Ui> for MenuItem {
+  fn into(self) -> Ui {
+    Ui(Rc::new(RefCell::new(self)))
   }
 }

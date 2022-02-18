@@ -13,17 +13,67 @@ pub mod components {
   pub use super::window::*;
 }
 
+pub mod common {
+  pub use super::{types, SubElementMap, Ui, UiElement, UiElementParent};
+  pub use crate::{
+    type_map,
+    util::{convert::string, ChildLogger, Settings, XmlNode},
+  };
+  pub use imgui_glium_renderer::imgui::{self, ImStr};
+  pub use lazy_static::lazy_static;
+  pub use maplit::hashmap;
+  pub use mlua::prelude::*;
+  pub use std::{cell::RefCell, ffi::CString, rc::Rc};
+}
+
 use crate::{
   scripting::{LuaType, LuaTypeTrait, ScriptRepository},
   util::{Logger, Settings, XmlNode},
 };
+
+pub mod types {
+  use super::{components::*, SubElementCreator, Ui, XmlNode};
+
+  type UiComponentKvp = (&'static str, SubElementCreator);
+
+  fn create_window(root: XmlNode) -> Ui {
+    Window::new(root).into()
+  }
+
+  fn create_textbox(root: XmlNode) -> Ui {
+    TextBox::new(root).into()
+  }
+
+  fn create_main_menu_bar(root: XmlNode) -> Ui {
+    MainMenuBar::new(root).into()
+  }
+
+  fn create_menu(root: XmlNode) -> Ui {
+    Menu::new(root).into()
+  }
+
+  fn create_menu_item(root: XmlNode) -> Ui {
+    MenuItem::new(root).into()
+  }
+
+  pub const WINDOW: UiComponentKvp = ("window", create_window);
+  pub const TEXTBOX: UiComponentKvp = ("textbox", create_textbox);
+  pub const MAIN_MENU_BAR: UiComponentKvp = ("main-menu-bar", create_main_menu_bar);
+  pub const MENU: UiComponentKvp = ("menu", create_menu);
+  pub const MENU_ITEM: UiComponentKvp = ("menu-item", create_menu_item);
+}
+
 use dyn_clone::DynClone;
-use imgui_glium_renderer::imgui::Ui;
+use imgui_glium_renderer::imgui;
 use lazy_static::lazy_static;
 use log::warn;
 use maplit::hashmap;
 use mlua::{prelude::*, UserData, UserDataMethods, Value};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{
+  cell::RefCell,
+  collections::{BTreeMap, HashMap},
+  rc::Rc,
+};
 pub use ui_manager::UiManager;
 
 #[macro_export]
@@ -37,58 +87,11 @@ macro_rules! type_map {
     };
   }
 
-pub mod common {
-  pub use super::{types, SubElementMap, UiElement, UiElementParent, UiSubElements};
-  pub use crate::{
-    type_map,
-    util::{convert::string, ChildLogger, Settings, XmlNode},
-  };
-  pub use imgui_glium_renderer::imgui::{self, ImStr, Ui};
-  pub use lazy_static::lazy_static;
-  pub use maplit::hashmap;
-  pub use mlua::prelude::*;
-  pub use std::ffi::CString;
-}
-
-pub mod types {
-  use super::{components::*, SubElementCreator, UiSubElement, XmlNode};
-
-  type UiComponentKvp = (&'static str, SubElementCreator);
-
-  fn create_window(root: XmlNode) -> UiSubElement {
-    Box::new(Window::new(root))
-  }
-
-  fn create_textbox(root: XmlNode) -> UiSubElement {
-    Box::new(TextBox::new(root))
-  }
-
-  fn create_main_menu_bar(root: XmlNode) -> UiSubElement {
-    Box::new(MainMenuBar::new(root))
-  }
-
-  fn create_menu(root: XmlNode) -> UiSubElement {
-    Box::new(Menu::new(root))
-  }
-
-  fn create_menu_item(root: XmlNode) -> UiSubElement {
-    Box::new(MenuItem::new(root))
-  }
-
-  pub const WINDOW: UiComponentKvp = ("window", create_window);
-  pub const TEXTBOX: UiComponentKvp = ("textbox", create_textbox);
-  pub const MAIN_MENU_BAR: UiComponentKvp = ("main-menu-bar", create_main_menu_bar);
-  pub const MENU: UiComponentKvp = ("menu", create_menu);
-  pub const MENU_ITEM: UiComponentKvp = ("menu-item", create_menu_item);
-}
-
-pub type UiSubElement = Box<dyn UiElement + Send + Sync>;
-pub type UiSubElements = Vec<UiSubElement>;
-pub type SubElementCreator = fn(XmlNode) -> UiSubElement;
+pub type SubElementCreator = fn(XmlNode) -> Ui;
 pub type SubElementMap = HashMap<&'static str, SubElementCreator>;
 
 pub trait UiElement: DynClone {
-  fn update(&mut self, _ui: &Ui<'_>, _lua: Option<&Lua>, _settings: &Settings) {
+  fn update(&mut self, _ui: &imgui::Ui<'_>, _lua: Option<&Lua>, _settings: &Settings) {
     panic!("'update' unimplemented");
   }
 }
@@ -100,12 +103,24 @@ pub trait UiElementParent {
 }
 
 #[derive(Clone)]
-struct EmptyUi;
+pub struct Ui(Rc<RefCell<dyn UiElement>>);
 
-impl UiElement for EmptyUi {}
+impl UiElement for Ui {
+  fn update(&mut self, ui: &imgui::Ui<'_>, lua: Option<&Lua>, settings: &Settings) {
+    self.0.borrow_mut().update(ui, lua, settings);
+  }
+}
 
-pub fn parse_children<E: UiElementParent>(root: XmlNode) -> UiSubElements {
-  let parse_child = |root: XmlNode| -> Option<UiSubElement> {
+impl LuaType<Ui> {}
+
+impl LuaTypeTrait for Ui {}
+
+impl UserData for Ui {}
+
+impl UserData for LuaType<Ui> {}
+
+pub fn parse_children<E: UiElementParent>(root: XmlNode) -> Vec<Ui> {
+  let parse_child = |root: XmlNode| -> Option<Ui> {
     if let Some(f) = E::valid_children().get(root.name.as_str()) {
       Some(f(root))
     } else {
@@ -126,7 +141,7 @@ pub fn parse_children<E: UiElementParent>(root: XmlNode) -> UiSubElements {
 }
 
 pub struct UiTemplate {
-  el: UiSubElement,
+  el: Ui,
   lua: Option<Rc<RefCell<Lua>>>,
 }
 
@@ -167,7 +182,7 @@ impl UiTemplate {
 impl Default for UiTemplate {
   fn default() -> Self {
     UiTemplate {
-      el: Box::new(EmptyUi),
+      el: EmptyUi::default().into(),
       lua: None,
     }
   }
@@ -186,19 +201,21 @@ impl UiElementParent for UiTemplate {
 }
 
 pub struct UiComponent {
-  el: UiSubElement,
+  el: Ui,
   lua: Option<Rc<RefCell<Lua>>>,
+  element_mapping: BTreeMap<String, Ui>,
 }
 
 impl UiComponent {
   fn new(lua: Option<Rc<RefCell<Lua>>>) -> Self {
     Self {
       lua,
-      el: Box::new(EmptyUi),
+      el: EmptyUi::default().into(),
+      element_mapping: BTreeMap::new(),
     }
   }
 
-  fn update(&mut self, ui: &Ui<'_>, settings: &Settings) {
+  fn update(&mut self, ui: &imgui::Ui<'_>, settings: &Settings) {
     if let Some(lua) = &self.lua {
       self.el.update(ui, Some(&lua.borrow()), settings);
     } else {
@@ -219,16 +236,19 @@ impl UiComponent {
     }
   }
 
-  fn get_element_by_id(&self, id: String) -> Option<LuaType<UiComponent>> {
-    None // TODO
+  fn get_element_by_id(&mut self, id: String) -> Option<LuaType<Ui>> {
+    self
+      .element_mapping
+      .get_mut(&id)
+      .map(|ui| ui.create_lua_type())
   }
 }
 
 impl LuaTypeTrait for UiComponent {}
 
 impl LuaType<UiComponent> {
-  fn get_element_by_id(&self, id: String) -> Option<LuaType<UiComponent>> {
-    self.obj().get_element_by_id(id)
+  fn get_element_by_id(&mut self, id: String) -> Option<LuaType<Ui>> {
+    self.obj_mut().get_element_by_id(id)
   }
 }
 
@@ -237,5 +257,16 @@ impl UserData for LuaType<UiComponent> {
     methods.add_method_mut("get_element_by_id", |_, this, id: String| {
       Ok(this.get_element_by_id(id))
     });
+  }
+}
+
+#[derive(Default, Clone)]
+struct EmptyUi;
+
+impl UiElement for EmptyUi {}
+
+impl Into<Ui> for EmptyUi {
+  fn into(self) -> Ui {
+    Ui(Rc::new(RefCell::new(self)))
   }
 }

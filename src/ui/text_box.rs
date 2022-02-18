@@ -14,7 +14,7 @@ impl TextBox {
 }
 
 impl UiElement for TextBox {
-  fn update(&mut self, ui: &Ui<'_>, _lua: Option<&Lua>, _settings: &Settings) {
+  fn update(&mut self, ui: &imgui::Ui<'_>, _lua: Option<&Lua>, _settings: &Settings) {
     ui.text(&self.text);
   }
 }
@@ -26,5 +26,11 @@ impl UiElementParent for TextBox {
     }
 
     &MAP
+  }
+}
+
+impl Into<Ui> for TextBox {
+  fn into(self) -> Ui {
+    Ui(Rc::new(RefCell::new(self)))
   }
 }
