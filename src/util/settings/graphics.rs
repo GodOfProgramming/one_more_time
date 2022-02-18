@@ -1,3 +1,5 @@
+use crate::scripting::{LuaType, LuaTypeTrait};
+use mlua::{Lua, UserData, UserDataFields, UserDataMethods};
 use toml::{value::Table, Value};
 
 mod keys {
@@ -5,23 +7,23 @@ mod keys {
 }
 
 #[derive(Debug)]
-pub struct GraphicsSettings {
+pub struct Settings {
   pub fps: u8,
 }
 
-impl GraphicsSettings {
+impl Settings {
   pub fn new() -> Self {
     Self::default()
   }
 }
 
-impl Default for GraphicsSettings {
+impl Default for Settings {
   fn default() -> Self {
     Self { fps: 60 }
   }
 }
 
-impl From<&Table> for GraphicsSettings {
+impl From<&Table> for Settings {
   fn from(table: &Table) -> Self {
     let mut settings = Self::new();
 
@@ -33,13 +35,13 @@ impl From<&Table> for GraphicsSettings {
   }
 }
 
-impl From<Table> for GraphicsSettings {
+impl From<Table> for Settings {
   fn from(table: Table) -> Self {
     Self::from(&table)
   }
 }
 
-impl Into<Table> for GraphicsSettings {
+impl Into<Table> for Settings {
   fn into(self) -> Table {
     let mut table = Table::new();
 
@@ -49,5 +51,27 @@ impl Into<Table> for GraphicsSettings {
     );
 
     table
+  }
+}
+
+impl LuaType<Settings> {
+  fn fps(&self) -> u8 {
+    self.obj().fps
+  }
+
+  fn set_fps(&mut self, fps: u8) {
+    self.obj_mut().fps = fps;
+  }
+}
+
+impl LuaTypeTrait for Settings {}
+
+impl UserData for LuaType<Settings> {
+  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
+    methods.add_method_mut("fps", |_, this, _: ()| Ok(this.fps()));
+    methods.add_method_mut("set_fps", |_, this, fps: u8| {
+      this.set_fps(fps);
+      Ok(())
+    });
   }
 }

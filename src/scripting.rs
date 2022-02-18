@@ -2,6 +2,11 @@ use crate::util::{DirID, Logger};
 use mlua::prelude::*;
 use std::{cell::RefCell, collections::BTreeMap, fs, path::PathBuf, rc::Rc};
 
+pub mod prelude {
+  pub use super::{LuaType, LuaTypeTrait};
+  pub use mlua::{prelude::*, Lua, UserData, UserDataFields, UserDataMethods};
+}
+
 pub struct LuaType<T>(*mut T);
 
 impl<T> LuaType<T> {

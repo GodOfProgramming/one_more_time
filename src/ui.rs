@@ -107,10 +107,13 @@ pub trait UiElement: DynClone {
   fn dupe(&self) -> UiElementPtr;
 
   fn clone_ui(&self, id_map: &mut BTreeMap<String, Ui>) -> Ui {
+    let ui = Ui(self.dupe());
+
     if let Some(id) = self.id() {
-      id_map.insert(id, Ui(self.dupe()));
+      id_map.insert(id, ui.clone());
     }
-    Ui(self.dupe())
+
+    ui
   }
 }
 

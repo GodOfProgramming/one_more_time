@@ -10,14 +10,14 @@ use crate::{
     ChildLogger, Dirs, FpsManager, Logger, MainLogger, RecursiveDirIterator,
     RecursiveDirIteratorWithID, Settings, SpawnableLogger,
   },
-  view::window::{Window, WindowSettings},
+  view::window::Window,
 };
 use glium::backend::Context;
 use glium::debug::DebugCallbackBehavior;
 use glium::debug::{MessageType, Severity, Source};
 use glium::Surface;
 use imgui_glium_renderer::imgui;
-use mlua::{LightUserData, Lua, UserData, UserDataFields, UserDataMethods, Value};
+use mlua::{Lua, UserData, UserDataFields, UserDataMethods, Value};
 use std::{
   env,
   path::Path,
@@ -55,14 +55,13 @@ impl App {
 
   pub fn run(
     &mut self,
-    settings: &Settings,
+    settings: &mut Settings,
     dirs: &Dirs,
     input_devices: &mut InputDevices,
     scripts: &mut ScriptRepository,
   ) {
     // window
-    let mut window_settings = WindowSettings::new(settings);
-    let (window, draw_interface) = Window::new(&mut window_settings);
+    let (window, draw_interface) = Window::new(settings);
 
     // opengl
     let behavior = App::create_opengl_debug_behavior(self.logger.spawn());
@@ -103,7 +102,7 @@ impl App {
 
     scripts.load_scripts(&self.logger);
 
-    ui_manager.open("test.test_bar", "debug_main_menu_bar", Value::Nil);
+    ui_manager.open("core.main_menu_bar", "debug_main_menu_bar", Value::Nil);
 
     let mut puffin_ui = puffin_imgui::ProfilerUi::default();
 
@@ -155,17 +154,21 @@ impl App {
       frame.clear_color(i.sin(), 0.30, 1.0 - i.sin(), 1.0);
 
       imgui_ctx.io_mut().display_size = [
-        window_settings.dimensions.x as f32,
-        window_settings.dimensions.y as f32,
+        settings.display.window.x as f32,
+        settings.display.window.y as f32,
       ];
 
       let ui: imgui::Ui<'_> = imgui_ctx.frame();
 
-      puffin_ui.window(&ui);
-
       ui_manager.update(&ui, settings);
 
-      ui.show_demo_window(&mut true);
+      if settings.game.show_profiler {
+        puffin_ui.window(&ui);
+      }
+
+      if settings.game.show_demo_window {
+        ui.show_demo_window(&mut true);
+      }
 
       // finalize
 

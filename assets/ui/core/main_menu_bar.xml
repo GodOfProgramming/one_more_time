@@ -1,6 +1,10 @@
 <root>
-  <script id="test.test_bar" />
+  <script id="core.main_menu_bar" />
   <main-menu-bar>
+    <menu name="Game">
+      <menu-item name="Show/Hide Profiler" click="show_or_hide_profiler"></menu-item>
+      <menu-item name="Show/Hide Demo Window" click="show_or_hide_demo_window"></menu-item>
+    </menu>
     <menu name="Debug">
       <menu-item name="Test" click="test_fn"></menu-item>
       <menu-item name="Rename" click="rename_window"></menu-item>

@@ -32,7 +32,8 @@ fn main() {
   let cwd = env::current_dir().unwrap(); // unwrap because there's bigger problems if this doesn't work
   let dirs = Dirs::new(cwd);
   let settings_file = Path::new(SETTINGS_FILE);
-  let settings = Settings::load(settings_file).unwrap();
+  let mut settings = Settings::load(settings_file).unwrap();
+  let lua_settings = settings.create_lua_type();
 
   logger.info(format!("Settings: {:#?}", settings));
 
@@ -49,9 +50,10 @@ fn main() {
     let globals = lua.globals();
     let _ = globals.set("App", lua_app);
     let _ = globals.set("Logger", lua_logger);
+    let _ = globals.set("Settings", lua_settings);
   }));
 
-  app.run(&settings, &dirs, &mut input_devices, &mut script_repo);
+  app.run(&mut settings, &dirs, &mut input_devices, &mut script_repo);
 
   settings.save(settings_file).unwrap();
 }

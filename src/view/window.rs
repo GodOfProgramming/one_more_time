@@ -16,52 +16,6 @@ use std::fmt::{Display, Error, Formatter};
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 
-pub struct WindowSettings {
-  pub title: String,
-  pub dimensions: U32Vec2,
-  pub mode: WindowMode,
-}
-
-impl WindowSettings {
-  pub fn new(settings: &Settings) -> Self {
-    Self {
-      title: settings.display.title.clone(),
-      dimensions: settings.display.window,
-      mode: settings.display.mode,
-    }
-  }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum WindowMode {
-  Fullscreen,
-  Windowed,
-}
-
-impl Default for WindowMode {
-  fn default() -> Self {
-    WindowMode::Windowed
-  }
-}
-
-impl Display for WindowMode {
-  fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-    match self {
-      WindowMode::Fullscreen => write!(f, "fullscreen"),
-      WindowMode::Windowed => write!(f, "windowed"),
-    }
-  }
-}
-
-impl From<&String> for WindowMode {
-  fn from(string: &String) -> Self {
-    match string.as_str() {
-      "fullscreen" => WindowMode::Fullscreen,
-      _ => WindowMode::Windowed,
-    }
-  }
-}
-
 type GlfwHandle = Rc<RefCell<Glfw>>;
 type WindowHandle = Rc<RefCell<GlfwWindow>>;
 
@@ -72,7 +26,7 @@ pub struct Window {
 }
 
 impl Window {
-  pub fn new(settings: &mut WindowSettings) -> (Self, WindowDrawInterface) {
+  pub fn new(settings: &mut Settings) -> (Self, WindowDrawInterface) {
     let mut glfw_handle = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 
     glfw_handle.default_window_hints();
@@ -86,16 +40,16 @@ impl Window {
 
     let (mut window_handle, event_stream) =
       glfw_handle.with_primary_monitor(|glfw_handle: &mut Glfw, monitor: Option<&Monitor>| {
-        let (mode, width, height) = match settings.mode {
-          WindowMode::Fullscreen => {
+        let (mode, width, height) = match settings.display.mode.as_str() {
+          "fullscreen" => {
             let vid_mode: VidMode = monitor.unwrap().get_video_mode().unwrap();
             glfw_handle.window_hint(WindowHint::RedBits(Some(vid_mode.red_bits)));
             glfw_handle.window_hint(WindowHint::BlueBits(Some(vid_mode.blue_bits)));
             glfw_handle.window_hint(WindowHint::GreenBits(Some(vid_mode.green_bits)));
             glfw_handle.window_hint(WindowHint::RefreshRate(Some(vid_mode.refresh_rate)));
 
-            settings.dimensions.x = vid_mode.width;
-            settings.dimensions.y = vid_mode.height;
+            settings.display.window.x = vid_mode.width;
+            settings.display.window.y = vid_mode.height;
 
             (
               glfw::WindowMode::FullScreen(monitor.unwrap()),
@@ -105,13 +59,13 @@ impl Window {
           }
           _ => (
             glfw::WindowMode::Windowed,
-            settings.dimensions.x,
-            settings.dimensions.y,
+            settings.display.window.x,
+            settings.display.window.y,
           ),
         };
 
         glfw_handle
-          .create_window(width, height, &settings.title, mode)
+          .create_window(width, height, &settings.display.title, mode)
           .unwrap()
       });
 

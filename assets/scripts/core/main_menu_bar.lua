@@ -6,6 +6,14 @@ function update()
     Logger:debug("updated");
 end
 
+function show_or_hide_profiler()
+    Settings:game():show_or_hide_profiler();
+end
+
+function show_or_hide_demo_window()
+    Settings:game():show_or_hide_demo_window();
+end
+
 function test_fn()
     UiManager:open("test_window", "test_window_instance");
 end
