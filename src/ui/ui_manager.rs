@@ -70,6 +70,16 @@ impl UiManager {
   pub fn get(&self, name: &str) -> Option<UiComponentPtr> {
     self.open_ui.get(name).cloned()
   }
+
+  pub fn list(&self) -> Vec<String> {
+    let mut ret = Vec::default();
+
+    for id in self.open_ui.keys() {
+      ret.push(id.clone());
+    }
+
+    ret
+  }
 }
 
 impl LuaTypeTrait for UiManager {}
@@ -81,6 +91,10 @@ impl LuaType<UiManager> {
 
   fn get(&self, name: &str) -> Option<UiComponentPtr> {
     self.obj().get(name)
+  }
+
+  fn list(&self) -> Vec<String> {
+    self.obj().list()
   }
 }
 
@@ -97,12 +111,14 @@ impl UserData for LuaType<UiManager> {
       },
     );
 
-    methods.add_method_mut("get", |_, this, name: String| {
+    methods.add_method("get", |_, this, name: String| {
       if let Some(mut ptr) = this.get(&name) {
         Ok(Some(ptr.component().create_lua_type()))
       } else {
         Ok(None)
       }
     });
+
+    methods.add_method("list", |_, this, _: ()| Ok(this.list()))
   }
 }
