@@ -78,6 +78,7 @@ impl ScriptRepository {
   }
 
   pub fn load_scripts<L: Logger>(&mut self, logger: &L) {
+    logger.debug("loading scripts".to_string());
     let keys = self.sources.keys();
     for key in keys {
       let lua = self.scripts.get(key).unwrap();

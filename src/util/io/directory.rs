@@ -1,5 +1,6 @@
 use std::{
   ffi::{OsStr, OsString},
+  fmt::Display,
   path::PathBuf,
 };
 
@@ -82,6 +83,12 @@ impl DirID {
   }
 }
 
+impl Display for DirID {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+    write!(f, "{:?}", self.id)
+  }
+}
+
 impl From<PathBuf> for DirID {
   fn from(path: PathBuf) -> Self {
     let mut v = Vec::default();
@@ -108,5 +115,19 @@ impl From<&str> for DirID {
     Self {
       id: OsString::from(id),
     }
+  }
+}
+
+impl From<String> for DirID {
+  fn from(id: String) -> Self {
+    Self {
+      id: OsString::from(id),
+    }
+  }
+}
+
+impl Into<String> for DirID {
+  fn into(self) -> String {
+    String::from(self.id.to_string_lossy())
   }
 }

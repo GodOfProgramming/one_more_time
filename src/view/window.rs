@@ -1,18 +1,17 @@
 use crate::input::{
   keyboard::{Key, KeyAction, KeyEvent},
-  mouse::{Button, ButtonAction, MouseButtonEvent},
+  mouse::{ButtonAction, MouseButtonEvent},
   InputDevices, InputProcessor,
 };
-use crate::math::*;
 use crate::util::Settings;
 use glfw::{
   Context, Glfw, Monitor, OpenGlProfileHint, VidMode, Window as GlfwWindow, WindowEvent, WindowHint,
 };
-use glium::backend::Backend;
-use glm::U32Vec2;
-use imgui_glium_renderer::imgui;
+use imgui_glium_renderer::{
+  glium::{self, backend::Backend},
+  imgui,
+};
 use std::cell::RefCell;
-use std::fmt::{Display, Error, Formatter};
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 

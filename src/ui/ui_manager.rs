@@ -10,8 +10,6 @@ use std::{
   path::PathBuf,
 };
 
-static mut NEXT_ID: usize = 0;
-
 #[derive(Default)]
 pub struct UiManager {
   templates: BTreeMap<DirID, UiTemplate>,
@@ -25,7 +23,7 @@ impl UiManager {
   {
     let mut manager = Self::default();
 
-    logger.debug("reading entries".to_string());
+    logger.debug("loading ui".to_string());
 
     for (entry, id) in iter {
       logger.debug(format!("reading entry {:?}", entry));

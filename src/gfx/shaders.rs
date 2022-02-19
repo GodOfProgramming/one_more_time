@@ -1,12 +1,16 @@
-use crate::util::{self, DirID, Dirs, RecursiveDirIteratorWithID};
-use glium::program::{Program, ProgramCreationError};
+use crate::util::{DirID, Dirs, Logger, RecursiveDirIteratorWithID};
+use imgui_glium_renderer::glium::{
+  backend::Context,
+  program::{Program, ProgramCreationError},
+};
 use lazy_static::lazy_static;
-use log::{error, warn};
 use regex::Regex;
 use std::{
   collections::{BTreeMap, BTreeSet},
   fs,
+  ops::Deref,
   path::{Path, PathBuf},
+  rc::Rc,
 };
 use toml::Value;
 
@@ -23,7 +27,8 @@ struct ShaderSource {
 }
 
 impl ShaderSource {
-  fn load_source(
+  fn load_source<L: Logger>(
+    logger: &L,
     shader_path: &Path,
     imported_files: &mut Vec<String>,
     successful_imports: &mut BTreeSet<String>,
@@ -51,11 +56,11 @@ impl ShaderSource {
         }
 
         if successful_imports.contains(&import_str) {
-          warn!("already imported '{}', skipping", import_str);
+          logger.warn(format!("already imported '{}', skipping", import_str));
           continue;
         }
 
-        let import_source = Self::load_source(&import, imported_files, successful_imports)?;
+        let import_source = Self::load_source(logger, &import, imported_files, successful_imports)?;
         lines.push(import_source);
         successful_imports.insert(import_str);
       } else {
@@ -109,7 +114,7 @@ impl ShaderSources {
     }
   }
 
-  pub fn load_all(&mut self, dirs: &Dirs) {
+  pub fn load_all<L: Logger>(&mut self, dirs: &Dirs, logger: &L) {
     for (path, id) in RecursiveDirIteratorWithID::from(&dirs.assets.cfg.shaders) {
       let data = fs::read_to_string(&path)
         .map_err(|e| format!("cannot find {:?}, err = {}", path, e))
@@ -128,7 +133,7 @@ impl ShaderSources {
             "vertex" => &mut sources.vertex,
             "fragment" => &mut sources.fragment,
             invalid => {
-              warn!("unsupported shader type: {}", invalid);
+              logger.warn(format!("unsupported shader type: {}", invalid));
               continue;
             }
           };
@@ -136,6 +141,7 @@ impl ShaderSources {
           if let Value::String(filename) = filename {
             let src_path = SRC_DIR.join(Path::new(filename));
             match ShaderSource::load_source(
+              logger,
               &src_path,
               &mut Vec::default(),
               &mut BTreeSet::default(),
@@ -144,12 +150,12 @@ impl ShaderSources {
                 *current_source = Some(source);
               }
               Err(msg) => {
-                error!("{}", msg);
+                logger.error(msg.to_string());
                 continue;
               }
             }
           } else {
-            error!("shader path is not a string");
+            logger.error("shader path is not a string".to_string());
             continue;
           }
         }
@@ -157,22 +163,22 @@ impl ShaderSources {
         if sources.is_valid() {
           self.sources.insert(new_id, sources.into());
         } else {
-          error!("required shader types not present for program");
+          logger.error("required shader types not present for program".to_string());
         }
       }
     }
   }
 
-  pub fn load_repository(self, ctx: &std::rc::Rc<glium::backend::Context>) -> ShaderRepository {
+  pub fn load_repository<L: Logger>(self, ctx: &Rc<Context>, logger: &L) -> ShaderRepository {
     let mut repo = ShaderRepository::default();
 
     for (id, sources) in self.sources {
       match Shader::from(ctx.clone(), sources) {
         Ok(shader) => {
-          repo.shaders.insert(id, shader);
+          repo.shaders.insert(id.into(), shader);
         }
         Err(msg) => {
-          error!("cannot load shader {}", msg);
+          logger.error(format!("cannot load shader '{}': {}", id, msg));
         }
       }
     }
@@ -186,19 +192,37 @@ pub struct Shader {
 }
 
 impl Shader {
-  fn from(
-    ctx: std::rc::Rc<glium::backend::Context>,
-    sources: ProgramSources,
-  ) -> Result<Self, ProgramCreationError> {
+  fn from(ctx: Rc<Context>, sources: ProgramSources) -> Result<Self, ProgramCreationError> {
     let program = Program::from_source(&ctx, &sources.vertex, &sources.fragment, None)?;
 
     Ok(Self { program })
   }
 }
 
-#[derive(Default)]
-pub struct ShaderRepository {
-  shaders: BTreeMap<DirID, Shader>,
+impl Deref for Shader {
+  type Target = Program;
+  fn deref(&self) -> &Self::Target {
+    &self.program
+  }
 }
 
-impl ShaderRepository {}
+#[derive(Default)]
+pub struct ShaderRepository {
+  shaders: BTreeMap<String, Shader>,
+}
+
+impl ShaderRepository {
+  pub fn get(&self, id: &str) -> Option<&Shader> {
+    self.shaders.get(id)
+  }
+
+  pub fn list(&self) -> Vec<String> {
+    let mut ret = Vec::default();
+
+    for id in self.shaders.keys() {
+      ret.push(id.clone());
+    }
+
+    ret
+  }
+}

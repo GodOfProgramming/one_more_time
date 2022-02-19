@@ -1,6 +1,5 @@
 use crate::scripting::{LuaType, LuaTypeTrait};
 use fern::InitError;
-use glium::debug::{MessageType, Severity, Source};
 use log::LevelFilter;
 use log::{debug, error, info, trace, warn};
 use mlua::{UserData, UserDataMethods};

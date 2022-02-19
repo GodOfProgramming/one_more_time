@@ -7,14 +7,13 @@ edition = "2021"
 
 [dependencies]
 
-glfw = "0.42.0"
-glium = "0.30.2"
-imgui-glium-renderer = "0.8.0"
+glfw = "0.43.0"
+imgui-glium-renderer = "0.8.2"
 image = "0.23.14"
 
 # steamworks = "0.8.0"
 
-nalgebra-glm = "0.15.0"
+nalgebra-glm = "0.16.0"
 geo = "0.18.0"
 
 toml = "0.5.8"

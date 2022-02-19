@@ -1,9 +1,9 @@
 use crate::util::{self, DirID, Dirs, RecursiveDirIteratorWithID};
-use glium::texture::{
+use image::{io::Reader, DynamicImage, ImageBuffer, RgbaImage};
+use imgui_glium_renderer::glium::texture::{
   self, RawImage2d, ResidentTexture, Texture2d, Texture2dDataSource, TextureAny, TextureHandle,
   TextureKind,
 };
-use image::{io::Reader, DynamicImage, ImageBuffer, RgbaImage};
 use log::error;
 use std::{
   collections::BTreeMap,

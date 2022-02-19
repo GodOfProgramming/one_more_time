@@ -9,12 +9,11 @@ mod view;
 
 use crate::{
   input::InputDevices,
-  scripting::{LuaType, LuaTypeTrait, ScriptRepository},
+  scripting::{LuaTypeTrait, ScriptRepository},
   util::{Dirs, Logger, MainLogger, RecursiveDirIteratorWithID, Settings, SpawnableLogger},
 };
 use game::App;
-use mlua::{Lua, Value};
-use std::{env, path::Path, sync::mpsc};
+use std::{env, path::Path};
 
 static SETTINGS_FILE: &str = "config/settings.toml";
 const LOG_LIMIT: usize = 5;
@@ -25,8 +24,7 @@ fn main() {
   let mut logger = MainLogger::new(LOG_LIMIT);
   let lua_logger = logger.create_lua_type();
 
-  let (sender, receiver) = mpsc::channel();
-  let mut app = App::new(logger.spawn(), sender, receiver);
+  let mut app = App::new(logger.spawn());
   let lua_app = app.create_lua_type();
 
   let cwd = env::current_dir().unwrap(); // unwrap because there's bigger problems if this doesn't work
@@ -46,7 +44,7 @@ fn main() {
 
   // set up some top level lua functions
 
-  script_repo.register_init_fn(Box::new(move |lua: &mut Lua| {
+  script_repo.register_init_fn(Box::new(move |lua| {
     let globals = lua.globals();
     let _ = globals.set("App", lua_app);
     let _ = globals.set("Logger", lua_logger);

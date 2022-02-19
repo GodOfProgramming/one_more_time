@@ -1,5 +1,5 @@
 use crate::{
-  gfx::ShaderSources,
+  gfx::*,
   input::{
     keyboard::{Key, KeyAction},
     InputCheck, InputDevices,
@@ -7,22 +7,19 @@ use crate::{
   scripting::{LuaType, LuaTypeTrait, ScriptRepository},
   ui::UiManager,
   util::{
-    ChildLogger, Dirs, FpsManager, Logger, MainLogger, RecursiveDirIterator,
-    RecursiveDirIteratorWithID, Settings, SpawnableLogger,
+    ChildLogger, Dirs, FpsManager, Logger, RecursiveDirIteratorWithID, Settings, SpawnableLogger,
   },
   view::window::Window,
 };
-use glium::backend::Context;
-use glium::debug::DebugCallbackBehavior;
-use glium::debug::{MessageType, Severity, Source};
-use glium::Surface;
-use imgui_glium_renderer::imgui;
-use mlua::{Lua, UserData, UserDataFields, UserDataMethods, Value};
-use std::{
-  env,
-  path::Path,
-  sync::mpsc::{Receiver, Sender},
+use imgui_glium_renderer::glium::{
+  self,
+  backend::Context,
+  debug::DebugCallbackBehavior,
+  debug::{MessageType, Severity, Source},
+  Surface,
 };
+use imgui_glium_renderer::imgui;
+use mlua::{Lua, UserData, UserDataMethods, Value};
 
 #[derive(PartialEq)]
 enum State {
@@ -35,21 +32,13 @@ enum State {
 pub struct App {
   logger: ChildLogger,
   state: State,
-  message_sender: Sender<String>,
-  message_receiver: Receiver<String>,
 }
 
 impl App {
-  pub fn new(
-    logger: ChildLogger,
-    message_sender: Sender<String>,
-    message_receiver: Receiver<String>,
-  ) -> Self {
+  pub fn new(logger: ChildLogger) -> Self {
     Self {
       logger,
       state: State::Starting,
-      message_sender,
-      message_receiver,
     }
   }
 
@@ -65,12 +54,16 @@ impl App {
 
     // opengl
     let behavior = App::create_opengl_debug_behavior(self.logger.spawn());
-    let gl_context = unsafe { Context::new(draw_interface, true, behavior).unwrap() };
+    let gl_context = unsafe { Context::new(draw_interface, false, behavior).unwrap() };
 
     // shaders
     let mut shaders = ShaderSources::new();
-    shaders.load_all(dirs);
-    let shader_repository = shaders.load_repository(&gl_context);
+    shaders.load_all(dirs, &self.logger);
+    let shader_repository = shaders.load_repository(&gl_context, &self.logger);
+
+    for id in shader_repository.list() {
+      self.logger.info(id);
+    }
 
     // textures
 
@@ -96,15 +89,30 @@ impl App {
     // game
     let mut fps_manager = FpsManager::new(settings.graphics.fps.into());
 
-    self
-      .logger
-      .info(format!("target fps = {}", fps_manager.target()));
-
     scripts.load_scripts(&self.logger);
 
     ui_manager.open("core.main_menu_bar", "debug_main_menu_bar", Value::Nil);
 
     let mut puffin_ui = puffin_imgui::ProfilerUi::default();
+
+    /* =============================================================================================== */
+
+    let triangle = Triangle::new();
+    let triangle_vbuff = glium::VertexBuffer::new(&gl_context, &triangle.vertices).unwrap();
+    //let triangle_ibuff = glium::IndexBuffer::new(
+    //  &gl_context,
+    //  glium::index::PrimitiveType::TrianglesList,
+    //  &triangle.indices,
+    //)
+    //.unwrap();
+    let triangle_ibuff = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
+    let triangle_shader = shader_repository.get("test.basic").unwrap();
+
+    let triangle_uniforms = glium::uniforms::EmptyUniforms;
+
+    let triangle_params = glium::DrawParameters::default();
+
+    /* =============================================================================================== */
 
     window.show();
 
@@ -119,12 +127,6 @@ impl App {
       // frame setup
 
       fps_manager.begin();
-
-      while let Ok(msg) = self.message_receiver.try_recv() {
-        if msg == "quit" {
-          self.state = State::Exiting;
-        }
-      }
 
       window.poll_events(input_devices, &mut imgui_ctx);
 
@@ -142,6 +144,11 @@ impl App {
 
       input_devices.new_frame();
 
+      imgui_ctx.io_mut().display_size = [
+        settings.display.window.x as f32,
+        settings.display.window.y as f32,
+      ];
+
       // render logic
 
       let mut frame = glium::Frame::new(
@@ -153,10 +160,15 @@ impl App {
 
       frame.clear_color(i.sin(), 0.30, 1.0 - i.sin(), 1.0);
 
-      imgui_ctx.io_mut().display_size = [
-        settings.display.window.x as f32,
-        settings.display.window.y as f32,
-      ];
+      if let Err(err) = frame.draw(
+        &triangle_vbuff,
+        &triangle_ibuff,
+        triangle_shader,
+        &triangle_uniforms,
+        &triangle_params,
+      ) {
+        self.logger.warn(err.to_string());
+      }
 
       let ui: imgui::Ui<'_> = imgui_ctx.frame();
 
@@ -182,10 +194,6 @@ impl App {
 
       fps_manager.end();
     }
-  }
-
-  pub fn get_msg_sender(&self) -> Sender<String> {
-    self.message_sender.clone()
   }
 
   fn create_opengl_debug_behavior(child_logger: ChildLogger) -> DebugCallbackBehavior {
