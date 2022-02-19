@@ -35,7 +35,7 @@ impl Window {
     glfw_handle.window_hint(WindowHint::Resizable(false));
     glfw_handle.window_hint(WindowHint::Visible(false));
     glfw_handle.window_hint(WindowHint::DoubleBuffer(true));
-    glfw_handle.window_hint(WindowHint::ContextNoError(true));
+    // glfw_handle.window_hint(WindowHint::ContextNoError(false));
 
     let (mut window_handle, event_stream) =
       glfw_handle.with_primary_monitor(|glfw_handle: &mut Glfw, monitor: Option<&Monitor>| {

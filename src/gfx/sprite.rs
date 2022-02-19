@@ -29,7 +29,7 @@ impl Triangle {
   pub fn new() -> Self {
     let vertices = [
       Vertex::new_with_pos(Vec3::new(-0.5, -0.5, 0.0)),
-      Vertex::new_with_pos(Vec3::new(0.0, -0.5, 0.0)),
+      Vertex::new_with_pos(Vec3::new(0.0, 0.5, 0.0)),
       Vertex::new_with_pos(Vec3::new(0.5, -0.5, 0.0)),
     ];
 

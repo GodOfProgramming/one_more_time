@@ -99,12 +99,6 @@ impl App {
 
     let triangle = Triangle::new();
     let triangle_vbuff = glium::VertexBuffer::new(&gl_context, &triangle.vertices).unwrap();
-    //let triangle_ibuff = glium::IndexBuffer::new(
-    //  &gl_context,
-    //  glium::index::PrimitiveType::TrianglesList,
-    //  &triangle.indices,
-    //)
-    //.unwrap();
     let triangle_ibuff = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
     let triangle_shader = shader_repository.get("test.basic").unwrap();
 
@@ -156,19 +150,21 @@ impl App {
         (settings.display.window.x, settings.display.window.y),
       );
 
-      // draw
-
       frame.clear_color(i.sin(), 0.30, 1.0 - i.sin(), 1.0);
 
-      if let Err(err) = frame.draw(
-        &triangle_vbuff,
-        &triangle_ibuff,
-        triangle_shader,
-        &triangle_uniforms,
-        &triangle_params,
-      ) {
-        self.logger.warn(err.to_string());
-      }
+      // draw objects
+
+      frame
+        .draw(
+          &triangle_vbuff,
+          &triangle_ibuff,
+          triangle_shader,
+          &triangle_uniforms,
+          &triangle_params,
+        )
+        .unwrap();
+
+      // draw ui
 
       let ui: imgui::Ui<'_> = imgui_ctx.frame();
 
@@ -182,11 +178,11 @@ impl App {
         ui.show_demo_window(&mut true);
       }
 
+      if let Err(err) = imgui_render.render(&mut frame, ui.render()) {
+        self.logger.warn(err.to_string());
+      }
+
       // finalize
-
-      let draw_data = ui.render();
-
-      imgui_render.render(&mut frame, draw_data).unwrap();
 
       frame.finish().unwrap();
 
