@@ -1,0 +1,5 @@
+[square]
+script = "test.entity"
+on_update = "update_square"
+model = "sprite"
+texture = "grass"

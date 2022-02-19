@@ -5,41 +5,69 @@ use imgui_glium_renderer::glium::{
   uniforms::UniformsStorage,
   vertex::VertexBuffer,
 };
+use mlua::Value;
 use std::{collections::BTreeMap, rc::Rc};
 
 pub struct Model {
   vertices: Vertices,
   indices: Indices,
   primitive: PrimitiveType,
-}
-
-impl Model {
-  pub fn new(vertices: Vertices, indices: Indices, primitive: PrimitiveType) -> Self {
-    Self {
-      vertices,
-      indices,
-      primitive,
-    }
-  }
-
-  pub fn create_buffers<F: Facade>(self, facade: &F) -> Result<Buffer, String> {
-    let vbuff = VertexBuffer::new(facade, &self.vertices).map_err(|err| err.to_string())?;
-    let ibuff =
-      IndexBuffer::new(facade, self.primitive, &self.indices).map_err(|err| err.to_string())?;
-    Ok(Buffer::new(vbuff, ibuff))
-  }
-}
-
-pub struct Buffer {
   vbuff: VertexBuffer<Vertex>,
   ibuff: IndexBuffer<u32>,
 }
 
-impl Buffer {
-  fn new(vbuff: VertexBuffer<Vertex>, ibuff: IndexBuffer<u32>) -> Self {
-    Self { vbuff, ibuff }
+impl Model {
+  pub fn new<F: Facade>(
+    facade: &F,
+    vertices: Vertices,
+    indices: Indices,
+    primitive: PrimitiveType,
+  ) -> Result<Model, String> {
+    let vbuff = VertexBuffer::new(facade, &vertices).map_err(|err| err.to_string())?;
+    let ibuff = IndexBuffer::new(facade, primitive, &indices).map_err(|err| err.to_string())?;
+    Ok(Self {
+      vertices,
+      indices,
+      primitive,
+      vbuff,
+      ibuff,
+    })
   }
 }
+
+pub struct ModelRepository {
+  models: BTreeMap<String, Rc<Model>>,
+}
+
+impl ModelRepository {
+  pub fn new<F: Facade>(facade: &F) -> Self {
+    let mut repo = Self {
+      models: Default::default(),
+    };
+
+    let sprite = Sprite::new();
+    repo.models.insert(
+      "sprite".to_string(),
+      Rc::new(
+        Model::new(
+          facade,
+          sprite.vertices,
+          sprite.indices,
+          PrimitiveType::TrianglesList,
+        )
+        .unwrap(),
+      ),
+    );
+
+    repo
+  }
+
+  pub fn get(&self, id: &str) -> Option<Rc<Model>> {
+    self.models.get(id).cloned()
+  }
+}
+
+pub struct EneityRepository {}
 
 pub struct Entity {
   lua: Option<Rc<Lua>>,

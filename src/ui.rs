@@ -213,7 +213,7 @@ pub fn parse_children<E: UiElementParent>(root: XmlNode) -> Vec<Ui> {
 
 pub struct UiTemplate {
   el: Ui,
-  lua: Option<Rc<Lua>>,
+  lua: Option<&'static Lua>,
 }
 
 impl UiTemplate {
@@ -273,12 +273,12 @@ impl UiElementParent for UiTemplate {
 
 pub struct UiComponent {
   el: Ui,
-  lua: Option<Rc<Lua>>,
+  lua: Option<&'static Lua>,
   element_mapping: BTreeMap<String, Ui>,
 }
 
 impl UiComponent {
-  fn new(lua: Option<Rc<Lua>>, el: Ui, element_mapping: BTreeMap<String, Ui>) -> Self {
+  fn new(lua: Option<&'static Lua>, el: Ui, element_mapping: BTreeMap<String, Ui>) -> Self {
     Self {
       lua,
       el,

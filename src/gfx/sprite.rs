@@ -85,3 +85,39 @@ impl Square {
     Self { vertices, indices }
   }
 }
+
+pub struct Sprite {
+  pub vertices: Vec<Vertex>,
+  pub indices: Vec<u32>,
+}
+
+impl Sprite {
+  pub fn new() -> Self {
+    let vertices = vec![
+      Vertex::new(
+        Vec3::new(-1.0, -1.0, 0.0),
+        Vec3::new(0.0, 0.0, 0.0),
+        Vec2::new(0.0, 0.0),
+      ),
+      Vertex::new(
+        Vec3::new(-1.0, 1.0, 0.0),
+        Vec3::new(0.0, 1.0, 0.0),
+        Vec2::new(0.0, 1.0),
+      ),
+      Vertex::new(
+        Vec3::new(1.0, 1.0, 0.0),
+        Vec3::new(0.0, 0.0, 1.0),
+        Vec2::new(1.0, 1.0),
+      ),
+      Vertex::new(
+        Vec3::new(1.0, -1.0, 0.0),
+        Vec3::new(0.0, 0.0, 1.0),
+        Vec2::new(1.0, 0.0),
+      ),
+    ];
+
+    let indices = vec![0, 1, 2, 2, 3, 0];
+
+    Self { vertices, indices }
+  }
+}

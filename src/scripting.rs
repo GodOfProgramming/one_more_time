@@ -1,6 +1,6 @@
 use crate::util::{DirID, Logger};
 use mlua::prelude::*;
-use std::{cell::RefCell, collections::BTreeMap, fs, path::PathBuf, rc::Rc};
+use std::{cell::RefCell, collections::BTreeMap, fs, mem, path::PathBuf, rc::Rc};
 
 pub mod prelude {
   pub use super::{LuaType, LuaTypeTrait};
@@ -40,9 +40,10 @@ pub trait LuaTypeTrait {
   }
 }
 
+#[derive(Default)]
 pub struct ScriptRepository {
   init_fns: Vec<Box<dyn Fn(&Lua)>>,
-  scripts: BTreeMap<DirID, Rc<Lua>>,
+  scripts: BTreeMap<DirID, &'static Lua>,
   sources: BTreeMap<DirID, String>,
 }
 
@@ -61,7 +62,8 @@ impl ScriptRepository {
     for (path, id) in iter {
       logger.info(format!("loading {:?} as id {:?}", path, id));
       if let Ok(src) = fs::read_to_string(&path) {
-        ret.scripts.insert(id.clone(), Rc::new(Lua::new()));
+        let lua = Lua::new().into_static();
+        ret.scripts.insert(id.clone(), lua);
         ret.sources.insert(id, src);
       } else {
         logger.error(format!("could not read {:?}", path));
@@ -90,7 +92,23 @@ impl ScriptRepository {
     }
   }
 
-  pub fn get(&self, id: &str) -> Option<Rc<Lua>> {
+  fn unload_scripts(mut self) {
+    let scripts = mem::take(&mut self.scripts);
+    for (_, script) in scripts {
+      unsafe {
+        Lua::from_static(script);
+      }
+    }
+  }
+
+  pub fn get(&self, id: &str) -> Option<&'static Lua> {
     self.scripts.get(&DirID::from(id)).cloned()
+  }
+}
+
+impl Drop for ScriptRepository {
+  fn drop(&mut self) {
+    let orig = mem::take(self);
+    orig.unload_scripts();
   }
 }

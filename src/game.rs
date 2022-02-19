@@ -22,6 +22,7 @@ use imgui_glium_renderer::glium::{
 };
 use imgui_glium_renderer::imgui;
 use mlua::{Lua, UserData, UserDataMethods, Value};
+use world::ModelRepository;
 
 #[derive(PartialEq)]
 enum State {
@@ -66,6 +67,9 @@ impl App {
     );
     let shader_repository = shaders.load_repository(&gl_context, &self.logger);
 
+    // models
+    let model_repository = ModelRepository::new(&gl_context);
+
     // textures
     let mut texture_sources = TextureSources::default();
     texture_sources.load_all(
@@ -98,7 +102,9 @@ impl App {
 
     scripts.load_scripts(&self.logger);
 
-    ui_manager.open("core.main_menu_bar", "debug_main_menu_bar", Value::Nil);
+    if cfg!(debug_assertions) {
+      ui_manager.open("core.main_menu_bar", "debug_main_menu_bar", Value::Nil);
+    }
 
     let mut puffin_ui = puffin_imgui::ProfilerUi::default();
 
