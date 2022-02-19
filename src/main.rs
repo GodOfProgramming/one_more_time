@@ -15,7 +15,7 @@ use crate::{
 use game::App;
 use std::{env, path::Path};
 
-static SETTINGS_FILE: &str = "config/settings.toml";
+static SETTINGS_FILE: &str = "settings.toml";
 const LOG_LIMIT: usize = 5;
 
 fn main() {
