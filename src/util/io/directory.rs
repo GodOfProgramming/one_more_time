@@ -7,7 +7,7 @@ use std::{
 #[derive(Debug, Clone)]
 pub struct ConfigDir {
   pub animations: PathBuf,
-  pub game: PathBuf,
+  pub entities: PathBuf,
   pub models: PathBuf,
   pub shaders: PathBuf,
   pub textures: PathBuf,
@@ -17,7 +17,7 @@ impl ConfigDir {
   fn new(dir: PathBuf) -> Self {
     Self {
       animations: dir.join("animations"),
-      game: dir.join("game"),
+      entities: dir.join("entities"),
       models: dir.join("models"),
       shaders: dir.join("shaders"),
       textures: dir.join("textures"),

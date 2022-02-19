@@ -18,11 +18,11 @@ use imgui_glium_renderer::glium::{
   backend::Context,
   debug::DebugCallbackBehavior,
   debug::{MessageType, Severity, Source},
-  uniform, Surface,
+  Surface,
 };
 use imgui_glium_renderer::imgui;
 use mlua::{Lua, UserData, UserDataMethods, Value};
-use world::ModelRepository;
+use world::{EntityRepository, ModelRepository};
 
 #[derive(PartialEq)]
 enum State {
@@ -98,6 +98,11 @@ impl App {
     }));
 
     // game
+    let entity_repository = EntityRepository::new(
+      &self.logger,
+      RecursiveDirIteratorWithID::from(&dirs.assets.cfg.entities),
+    );
+
     let mut fps_manager = FpsManager::new(settings.graphics.fps.into());
 
     scripts.load_scripts(&self.logger);
@@ -108,29 +113,15 @@ impl App {
 
     let mut puffin_ui = puffin_imgui::ProfilerUi::default();
 
-    /* =============================================================================================== */
-
-    let test_obj = Square::new();
-    let test_obj_vbuff = glium::VertexBuffer::new(&gl_context, &test_obj.vertices).unwrap();
-    let test_obj_ibuff = glium::index::IndexBuffer::new(
-      &gl_context,
-      glium::index::PrimitiveType::TrianglesList,
-      &test_obj.indices,
-    )
-    .unwrap();
-    let test_obj_shader = shader_repository.get("test.basic").unwrap();
-
-    let grass_tex = texture_repository.get("grass").unwrap();
-
-    let test_obj_uniforms = uniform! {
-      tex: grass_tex,
-    };
-
-    // window.poll_events(test_obj_uniforms, &mut imgui_ctx);
-
-    let test_obj_params = glium::DrawParameters::default();
-
-    /* =============================================================================================== */
+    let test_obj = entity_repository
+      .construct(
+        "characters.test.square",
+        scripts,
+        &shader_repository,
+        &model_repository,
+        &texture_repository,
+      )
+      .unwrap();
 
     window.show();
 
@@ -178,15 +169,7 @@ impl App {
 
       // draw objects
 
-      frame
-        .draw(
-          &test_obj_vbuff,
-          &test_obj_ibuff,
-          test_obj_shader,
-          &test_obj_uniforms,
-          &test_obj_params,
-        )
-        .unwrap();
+      test_obj.draw(&mut frame);
 
       // draw ui
 

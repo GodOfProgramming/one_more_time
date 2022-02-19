@@ -4,7 +4,7 @@ use imgui_glium_renderer::glium::{
   backend::Facade,
   texture::{RawImage2d, SrgbTexture2d},
 };
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{collections::BTreeMap, path::PathBuf, rc::Rc};
 
 #[derive(Default)]
 pub struct TextureSources {
@@ -45,7 +45,7 @@ impl TextureSources {
 
       match SrgbTexture2d::new(facade, raw_img) {
         Ok(tex) => {
-          tex_repo.textures.insert(id.into(), tex);
+          tex_repo.textures.insert(id.into(), Rc::new(tex));
         }
         Err(err) => logger.error(format!("could not convert {} to srgb tex: {:?}", id, err)),
       }
@@ -57,11 +57,11 @@ impl TextureSources {
 
 #[derive(Default)]
 pub struct TextureRepository {
-  textures: BTreeMap<String, SrgbTexture2d>,
+  textures: BTreeMap<String, Rc<SrgbTexture2d>>,
 }
 
 impl TextureRepository {
-  pub fn get(&self, id: &str) -> Option<&SrgbTexture2d> {
-    self.textures.get(id)
+  pub fn get(&self, id: &str) -> Option<Rc<SrgbTexture2d>> {
+    self.textures.get(id).cloned()
   }
 }

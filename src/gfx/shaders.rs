@@ -179,7 +179,7 @@ impl ShaderSources {
     for (id, sources) in self.sources {
       match Shader::from(ctx.clone(), sources) {
         Ok(shader) => {
-          repo.shaders.insert(id.into(), shader);
+          repo.shaders.insert(id.into(), Rc::new(shader));
         }
         Err(msg) => {
           logger.error(format!("cannot load shader '{}': {}", id, msg));
@@ -212,12 +212,12 @@ impl Deref for Shader {
 
 #[derive(Default)]
 pub struct ShaderRepository {
-  shaders: BTreeMap<String, Shader>,
+  shaders: BTreeMap<String, Rc<Shader>>,
 }
 
 impl ShaderRepository {
-  pub fn get(&self, id: &str) -> Option<&Shader> {
-    self.shaders.get(id)
+  pub fn get(&self, id: &str) -> Option<Rc<Shader>> {
+    self.shaders.get(id).cloned()
   }
 
   pub fn list(&self) -> Vec<String> {

@@ -3,7 +3,7 @@ use mlua::prelude::*;
 use std::{cell::RefCell, collections::BTreeMap, fs, mem, path::PathBuf, rc::Rc};
 
 pub mod prelude {
-  pub use super::{LuaType, LuaTypeTrait};
+  pub use super::{LuaType, LuaTypeTrait, ScriptRepository};
   pub use mlua::{prelude::*, Lua, UserData, UserDataFields, UserDataMethods};
 }
 
