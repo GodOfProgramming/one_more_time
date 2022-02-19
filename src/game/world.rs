@@ -224,11 +224,9 @@ pub struct Entity {
 
 impl Entity {
   pub fn update(&mut self) {
-    let lua_type = self.create_lua_type();
+    let ptr = self.as_ptr_mut();
     if let Some(lua) = &self.lua {
-      let res: Result<(), mlua::Error> = lua
-        .globals()
-        .call_function(self.on_update.as_str(), lua_type);
+      let res: Result<(), mlua::Error> = lua.globals().call_function(self.on_update.as_str(), ptr);
       if let Err(_e) = res {
         // todo
       }
@@ -257,11 +255,9 @@ impl Entity {
   }
 }
 
-impl LuaType<Entity> {}
+impl AsPtr for Entity {}
 
-impl LuaTypeTrait for Entity {}
-
-impl UserData for LuaType<Entity> {}
+impl UserData for MutPtr<Entity> {}
 
 #[derive(Clone)]
 pub struct Tile;

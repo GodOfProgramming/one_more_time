@@ -84,7 +84,7 @@ impl Window {
   }
 
   pub fn setup_imgui(&self, imgui_ctx: &mut imgui::Context) {
-    let mut io = imgui_ctx.io_mut();
+    let io = imgui_ctx.io_mut();
 
     io[imgui::Key::Tab] = Key::Tab as _;
     io[imgui::Key::LeftArrow] = Key::LeftArrow as _;

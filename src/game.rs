@@ -6,7 +6,7 @@ use crate::{
     keyboard::{Key, KeyAction},
     InputCheck, InputDevices,
   },
-  scripting::{LuaType, LuaTypeTrait, ScriptRepository},
+  scripting::prelude::*,
   ui::UiManager,
   util::{
     ChildLogger, Dirs, FpsManager, Logger, RecursiveDirIteratorWithID, Settings, SpawnableLogger,
@@ -21,7 +21,7 @@ use imgui_glium_renderer::glium::{
   Surface,
 };
 use imgui_glium_renderer::imgui;
-use mlua::{Lua, UserData, UserDataMethods, Value};
+use mlua::{UserData, UserDataMethods, Value};
 use world::{EntityRepository, ModelRepository};
 
 #[derive(PartialEq)]
@@ -90,12 +90,14 @@ impl App {
       RecursiveDirIteratorWithID::from(&dirs.assets.ui),
       scripts,
     );
-    let lua_ui_manager = ui_manager.create_lua_type();
 
-    scripts.register_init_fn(Box::new(move |lua| {
-      let globals = lua.globals();
-      let _ = globals.set("UiManager", lua_ui_manager);
-    }));
+    {
+      let ui_manager_ptr = ui_manager.as_ptr_mut();
+      scripts.register_init_fn(Box::new(move |lua| {
+        let globals = lua.globals();
+        let _ = globals.set("UiManager", ui_manager_ptr);
+      }));
+    }
 
     // game
     let entity_repository = EntityRepository::new(
@@ -242,18 +244,12 @@ impl App {
   }
 }
 
-impl LuaType<App> {
-  fn request_exit(&mut self) {
-    self.obj_mut().state = State::Exiting;
-  }
-}
+impl AsPtr for App {}
 
-impl LuaTypeTrait for App {}
-
-impl UserData for LuaType<App> {
+impl UserData for MutPtr<App> {
   fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
     methods.add_method_mut("request_exit", |_, this, _: ()| {
-      this.request_exit();
+      this.state = State::Exiting;
       Ok(())
     });
   }

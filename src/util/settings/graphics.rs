@@ -1,5 +1,5 @@
-use crate::scripting::{LuaType, LuaTypeTrait};
-use mlua::{Lua, UserData, UserDataFields, UserDataMethods};
+use crate::scripting::prelude::*;
+use mlua::{UserData, UserDataMethods};
 use toml::{value::Table, Value};
 
 mod keys {
@@ -54,23 +54,13 @@ impl Into<Table> for Settings {
   }
 }
 
-impl LuaType<Settings> {
-  fn fps(&self) -> u8 {
-    self.obj().fps
-  }
+impl AsPtr for Settings {}
 
-  fn set_fps(&mut self, fps: u8) {
-    self.obj_mut().fps = fps;
-  }
-}
-
-impl LuaTypeTrait for Settings {}
-
-impl UserData for LuaType<Settings> {
+impl UserData for MutPtr<Settings> {
   fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-    methods.add_method_mut("fps", |_, this, _: ()| Ok(this.fps()));
+    methods.add_method("fps", |_, this, _: ()| Ok(this.fps));
     methods.add_method_mut("set_fps", |_, this, fps: u8| {
-      this.set_fps(fps);
+      this.fps = fps;
       Ok(())
     });
   }

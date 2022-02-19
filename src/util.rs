@@ -2,7 +2,7 @@ pub mod convert;
 mod fps;
 mod io;
 mod logging;
-mod math;
+pub mod ptr;
 mod settings;
 mod xml;
 

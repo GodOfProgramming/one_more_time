@@ -1,4 +1,4 @@
-use crate::scripting::{LuaType, LuaTypeTrait};
+use crate::scripting::prelude::*;
 use fern::InitError;
 use log::LevelFilter;
 use log::{debug, error, info, trace, warn};
@@ -184,31 +184,9 @@ impl Logger for MainLogger {
   }
 }
 
-impl LuaTypeTrait for MainLogger {}
+impl AsPtr for MainLogger {}
 
-impl LuaType<MainLogger> {
-  fn trace(&self, msg: String) {
-    self.obj().trace(msg);
-  }
-
-  fn debug(&self, msg: String) {
-    self.obj().debug(msg);
-  }
-
-  fn info(&self, msg: String) {
-    self.obj().info(msg);
-  }
-
-  fn warn(&self, msg: String) {
-    self.obj().warn(msg);
-  }
-
-  fn error(&self, msg: String) {
-    self.obj().error(msg);
-  }
-}
-
-impl UserData for LuaType<MainLogger> {
+impl UserData for ConstPtr<MainLogger> {
   fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
     methods.add_method_mut("trace", |_, this, msg: String| {
       this.trace(msg);
@@ -276,56 +254,5 @@ impl SpawnableLogger<ChildLogger> for ChildLogger {
     Self {
       sender: self.sender.clone(),
     }
-  }
-}
-
-impl LuaType<ChildLogger> {
-  fn trace(&self, msg: String) {
-    self.obj().trace(msg);
-  }
-
-  fn debug(&self, msg: String) {
-    self.obj().debug(msg);
-  }
-
-  fn info(&self, msg: String) {
-    self.obj().info(msg);
-  }
-
-  fn warn(&self, msg: String) {
-    self.obj().warn(msg);
-  }
-
-  fn error(&self, msg: String) {
-    self.obj().error(msg);
-  }
-}
-
-impl UserData for LuaType<ChildLogger> {
-  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-    methods.add_method_mut("trace", |_, this, msg: String| {
-      this.trace(msg);
-      Ok(())
-    });
-
-    methods.add_method_mut("debug", |_, this, msg: String| {
-      this.debug(msg);
-      Ok(())
-    });
-
-    methods.add_method_mut("info", |_, this, msg: String| {
-      this.info(msg);
-      Ok(())
-    });
-
-    methods.add_method_mut("warn", |_, this, msg: String| {
-      this.warn(msg);
-      Ok(())
-    });
-
-    methods.add_method_mut("error", |_, this, msg: String| {
-      this.error(msg);
-      Ok(())
-    });
   }
 }

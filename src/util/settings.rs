@@ -7,7 +7,7 @@ use std::{fs, path::Path};
 use toml::{value::Table, Value};
 
 mod common {
-  pub use crate::scripting::{LuaType, LuaTypeTrait};
+  pub use crate::scripting::prelude::*;
   pub use mlua::{Lua, UserData, UserDataFields, UserDataMethods};
   pub use std::cell::Cell;
   pub use toml::{value::Table, Value};
@@ -77,26 +77,12 @@ impl Settings {
   }
 }
 
-impl LuaType<Settings> {
-  fn display(&mut self) -> LuaType<display::Settings> {
-    self.obj_mut().display.create_lua_type()
-  }
+impl AsPtr for Settings {}
 
-  fn graphics(&mut self) -> LuaType<graphics::Settings> {
-    self.obj_mut().graphics.create_lua_type()
-  }
-
-  fn game(&mut self) -> LuaType<game::Settings> {
-    self.obj_mut().game.create_lua_type()
-  }
-}
-
-impl LuaTypeTrait for Settings {}
-
-impl UserData for LuaType<Settings> {
+impl UserData for MutPtr<Settings> {
   fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-    methods.add_method_mut("display", |_, this, _: ()| Ok(this.display()));
-    methods.add_method_mut("graphics", |_, this, _: ()| Ok(this.graphics()));
-    methods.add_method_mut("game", |_, this, _: ()| Ok(this.game()));
+    methods.add_method_mut("display", |_, this, _: ()| Ok(this.display.as_ptr_mut()));
+    methods.add_method_mut("graphics", |_, this, _: ()| Ok(this.graphics.as_ptr_mut()));
+    methods.add_method_mut("game", |_, this, _: ()| Ok(this.game.as_ptr_mut()));
   }
 }

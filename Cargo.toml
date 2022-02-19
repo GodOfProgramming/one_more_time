@@ -38,8 +38,6 @@ regex = "1.5.4"
 walkdir = "2.3.2"
 maplit = "1.0.2"
 
-dlopen = "0.1.8"
-v8 = "0.38.1"
 mlua = { version = "0.7.3", features = ["lua54", "vendored"] }
 
 double = "0.2.4"

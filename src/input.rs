@@ -19,10 +19,6 @@ pub struct InputDevices {
 }
 
 impl InputDevices {
-  pub fn new() -> Self {
-    Self::default()
-  }
-
   pub fn new_frame(&mut self) {
     self.keyboard.new_frame();
     self.mouse.new_frame();

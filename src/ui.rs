@@ -27,7 +27,7 @@ pub mod common {
 }
 
 use crate::{
-  scripting::{LuaType, LuaTypeTrait, ScriptRepository},
+  scripting::prelude::*,
   util::{Logger, Settings, XmlNode},
 };
 
@@ -68,7 +68,7 @@ use imgui_glium_renderer::imgui;
 use lazy_static::lazy_static;
 use log::warn;
 use maplit::hashmap;
-use mlua::{prelude::*, UserData, UserDataMethods, Value};
+use mlua::Value;
 use std::{
   cell::RefCell,
   collections::{BTreeMap, HashMap},
@@ -158,29 +158,9 @@ impl UiElement for Ui {
   }
 }
 
-impl LuaType<Ui> {}
+impl AsPtr for Ui {}
 
-impl UiElement for LuaType<Ui> {
-  fn kind(&self) -> String {
-    self.obj().kind()
-  }
-
-  fn id(&self) -> Option<String> {
-    self.obj().id()
-  }
-
-  fn set_attrib(&mut self, attrib: String, value: Value) {
-    self.obj_mut().set_attrib(attrib, value);
-  }
-
-  fn dupe(&self) -> UiElementPtr {
-    self.obj().dupe()
-  }
-}
-
-impl LuaTypeTrait for Ui {}
-
-impl UserData for LuaType<Ui> {
+impl UserData for MutPtr<Ui> {
   fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
     methods.add_method_mut("kind", |_, this, _: ()| Ok(this.kind()));
     methods.add_method_mut("set_attrib", |_, this, (name, value): (String, Value)| {
@@ -242,7 +222,7 @@ impl UiTemplate {
   pub fn create_component(&self, data: Value) -> UiComponentPtr {
     let mut id_map = BTreeMap::new();
     let el = self.el.clone_ui(&mut id_map);
-    let component = UiComponent::new(self.lua.clone(), el, id_map);
+    let component = UiComponent::new(self.lua, el, id_map);
 
     component.initialize(data);
 
@@ -287,12 +267,10 @@ impl UiComponent {
   }
 
   fn update(&mut self, ui: &imgui::Ui<'_>, settings: &Settings) {
-    let lua_type = self.create_lua_type();
+    let ptr = self.as_ptr_mut();
     if let Some(lua) = &self.lua {
-      unsafe {
-        let _ = lua.globals().set("document", lua_type);
-        self.el.update(ui, Some(&lua), settings);
-      }
+      let _ = lua.globals().set("document", ptr);
+      self.el.update(ui, Some(lua), settings);
     } else {
       self.el.update(ui, None, settings);
     }
@@ -310,26 +288,17 @@ impl UiComponent {
     }
   }
 
-  fn get_element_by_id(&mut self, id: String) -> Option<LuaType<Ui>> {
-    self
-      .element_mapping
-      .get_mut(&id)
-      .map(|ui| ui.create_lua_type())
+  fn get_element_by_id(&mut self, id: &str) -> Option<MutPtr<Ui>> {
+    self.element_mapping.get_mut(id).map(|ui| ui.as_ptr_mut())
   }
 }
 
-impl LuaType<UiComponent> {
-  fn get_element_by_id(&mut self, id: String) -> Option<LuaType<Ui>> {
-    self.obj_mut().get_element_by_id(id)
-  }
-}
+impl AsPtr for UiComponent {}
 
-impl LuaTypeTrait for UiComponent {}
-
-impl UserData for LuaType<UiComponent> {
+impl UserData for MutPtr<UiComponent> {
   fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
     methods.add_method_mut("get_element_by_id", |_, this, id: String| {
-      Ok(this.get_element_by_id(id))
+      Ok(this.get_element_by_id(&id))
     });
   }
 }

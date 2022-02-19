@@ -57,39 +57,23 @@ impl Into<Table> for Settings {
   }
 }
 
-impl LuaType<Settings> {
-  fn show_profiler(&self) -> bool {
-    self.obj().show_profiler
-  }
+impl AsPtr for Settings {}
 
-  fn set_show_profiler(&mut self, v: bool) {
-    self.obj_mut().show_profiler = v;
-  }
-
+impl MutPtr<Settings> {
   fn invert_profiler_display(&mut self) {
-    self.obj_mut().show_profiler = !self.obj().show_profiler;
-  }
-
-  fn show_demo_window(&self) -> bool {
-    self.obj().show_demo_window
-  }
-
-  fn set_show_demo_window(&mut self, v: bool) {
-    self.obj_mut().show_demo_window = v;
+    self.show_profiler = !self.show_profiler;
   }
 
   fn invert_demo_window_display(&mut self) {
-    self.obj_mut().show_demo_window = !self.obj().show_demo_window;
+    self.show_demo_window = !self.show_demo_window;
   }
 }
 
-impl LuaTypeTrait for Settings {}
-
-impl UserData for LuaType<Settings> {
+impl UserData for MutPtr<Settings> {
   fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-    methods.add_method_mut("show_profiler", |_, this, _: ()| Ok(this.show_profiler()));
+    methods.add_method_mut("show_profiler", |_, this, _: ()| Ok(this.show_profiler));
     methods.add_method_mut("set_show_profiler", |_, this, show_profiler: bool| {
-      this.set_show_profiler(show_profiler);
+      this.show_profiler = show_profiler;
       Ok(())
     });
     methods.add_method_mut("show_or_hide_profiler", |_, this, _: ()| {
@@ -98,10 +82,10 @@ impl UserData for LuaType<Settings> {
     });
 
     methods.add_method_mut("show_demo_window", |_, this, _: ()| {
-      Ok(this.show_demo_window())
+      Ok(this.show_demo_window)
     });
     methods.add_method_mut("set_show_demo_window", |_, this, show_demo_window: bool| {
-      this.set_show_demo_window(show_demo_window);
+      this.show_demo_window = show_demo_window;
       Ok(())
     });
     methods.add_method_mut("show_or_hide_demo_window", |_, this, _: ()| {

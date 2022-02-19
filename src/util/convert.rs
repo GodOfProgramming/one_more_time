@@ -4,7 +4,7 @@ type ConversionResult<T> = Result<T, String>;
 
 pub mod string {
   use super::*;
-  use crate::util::math::Vec2;
+  use crate::math::glm::IVec2;
   use log::warn;
   use std::{ffi::CString, num::NonZeroU8};
 
@@ -20,7 +20,7 @@ pub mod string {
   /**
    * String must be of the form "(x, y)" with whitespace a non-issue
    */
-  pub fn into_vec2(s: &str) -> ConversionResult<Vec2> {
+  pub fn into_vec2(s: &str) -> ConversionResult<IVec2> {
     let expect = |buff: &[u8], index: &mut usize, expected_char| {
       if let Some(c) = buff.get(*index) {
         let c = *c as char;
@@ -50,7 +50,7 @@ pub mod string {
 
       let s: String = x_parts.into_iter().collect();
 
-      if let Ok(v) = s.parse::<u32>() {
+      if let Ok(v) = s.parse::<i32>() {
         Ok(v)
       } else {
         Err(())
@@ -68,7 +68,7 @@ pub mod string {
       }
     };
 
-    let mut vec = Vec2::default();
+    let mut vec = IVec2::default();
 
     let mut index = 0;
     let buff = s.as_bytes();
@@ -239,19 +239,19 @@ pub mod value {
 #[cfg(test)]
 mod tests {
   use super::{path, string};
-  use crate::util::math::Vec2;
+  use crate::math::glm::IVec2;
   use std::path::Path;
 
   #[test]
   fn string_parse_vec2() {
     let tests = vec![
-      (" (1,2)", Ok(Vec2::new(1, 2))),
-      (" (1, 2)", Ok(Vec2::new(1, 2))),
-      ("(1, 2) ", Ok(Vec2::new(1, 2))),
-      ("(1, 2)", Ok(Vec2::new(1, 2))),
-      ("(12, 34)", Ok(Vec2::new(12, 34))),
-      ("(123, 456)", Ok(Vec2::new(123, 456))),
-      ("(1,2)", Ok(Vec2::new(1, 2))),
+      (" (1,2)", Ok(IVec2::new(1, 2))),
+      (" (1, 2)", Ok(IVec2::new(1, 2))),
+      ("(1, 2) ", Ok(IVec2::new(1, 2))),
+      ("(1, 2)", Ok(IVec2::new(1, 2))),
+      ("(12, 34)", Ok(IVec2::new(12, 34))),
+      ("(123, 456)", Ok(IVec2::new(123, 456))),
+      ("(1,2)", Ok(IVec2::new(1, 2))),
       ("1, 23)", Err(())),
       ("(1, 23", Err(())),
       ("1, 2", Err(())),

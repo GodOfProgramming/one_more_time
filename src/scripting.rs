@@ -1,43 +1,11 @@
 use crate::util::{DirID, Logger};
-use mlua::prelude::*;
-use std::{cell::RefCell, collections::BTreeMap, fs, mem, path::PathBuf, rc::Rc};
+use prelude::*;
+use std::{collections::BTreeMap, fs, mem, path::PathBuf};
 
 pub mod prelude {
-  pub use super::{LuaType, LuaTypeTrait, ScriptRepository};
+  pub use super::ScriptRepository;
+  pub use crate::util::ptr::prelude::*;
   pub use mlua::{prelude::*, Lua, UserData, UserDataFields, UserDataMethods};
-}
-
-pub struct LuaType<T>(*mut T);
-
-impl<T> LuaType<T> {
-  pub fn from_type(t: *mut T) -> Self {
-    Self(t)
-  }
-
-  pub fn obj(&self) -> &T {
-    unsafe { &*self.0 }
-  }
-
-  pub fn obj_mut(&mut self) -> &mut T {
-    unsafe { &mut *self.0 }
-  }
-}
-
-impl<T> Clone for LuaType<T> {
-  fn clone(&self) -> Self {
-    Self(self.0)
-  }
-}
-
-impl<T> Copy for LuaType<T> {}
-
-pub trait LuaTypeTrait {
-  fn create_lua_type(&mut self) -> LuaType<Self>
-  where
-    Self: Sized,
-  {
-    LuaType::from_type(self)
-  }
 }
 
 #[derive(Default)]
@@ -84,7 +52,7 @@ impl ScriptRepository {
       let lua = self.scripts.get(key).unwrap();
       let src = self.sources.get(key).unwrap();
       for f in &self.init_fns {
-        f(&lua);
+        f(lua);
       }
       if let Err(e) = lua.load(&src).exec() {
         logger.error(format!("could not load {:?}: {}", key, e));

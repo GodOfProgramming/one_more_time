@@ -1,14 +1,11 @@
 use super::{UiComponentPtr, UiTemplate};
 use crate::{
-  scripting::{LuaType, LuaTypeTrait, ScriptRepository},
+  scripting::prelude::*,
   util::{DirID, Logger, Settings, XmlNode},
 };
 use imgui_glium_renderer::imgui::Ui;
 use mlua::{UserData, UserDataMethods, Value};
-use std::{
-  collections::{BTreeMap, HashMap},
-  path::PathBuf,
-};
+use std::{collections::BTreeMap, path::PathBuf};
 
 #[derive(Default)]
 pub struct UiManager {
@@ -79,29 +76,15 @@ impl UiManager {
   }
 }
 
-impl LuaTypeTrait for UiManager {}
+impl AsPtr for UiManager {}
 
-impl LuaType<UiManager> {
-  fn open(&mut self, id: &str, name: String, data: Value) -> Option<UiComponentPtr> {
-    self.obj_mut().open(id, &name, data)
-  }
-
-  fn get(&self, name: &str) -> Option<UiComponentPtr> {
-    self.obj().get(name)
-  }
-
-  fn list(&self) -> Vec<String> {
-    self.obj().list()
-  }
-}
-
-impl UserData for LuaType<UiManager> {
+impl UserData for MutPtr<UiManager> {
   fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
     methods.add_method_mut(
       "open",
       |_, this, (id, name, data): (String, String, Value)| {
-        if let Some(mut ptr) = this.open(&id, name, data) {
-          Ok(Some(ptr.component().create_lua_type()))
+        if let Some(mut ptr) = this.open(&id, &name, data) {
+          Ok(Some(ptr.component().as_ptr_mut()))
         } else {
           Ok(None)
         }
@@ -110,7 +93,7 @@ impl UserData for LuaType<UiManager> {
 
     methods.add_method("get", |_, this, name: String| {
       if let Some(mut ptr) = this.get(&name) {
-        Ok(Some(ptr.component().create_lua_type()))
+        Ok(Some(ptr.component().as_ptr_mut()))
       } else {
         Ok(None)
       }
