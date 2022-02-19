@@ -213,7 +213,7 @@ pub fn parse_children<E: UiElementParent>(root: XmlNode) -> Vec<Ui> {
 
 pub struct UiTemplate {
   el: Ui,
-  lua: Option<Rc<RefCell<Lua>>>,
+  lua: Option<Rc<Lua>>,
 }
 
 impl UiTemplate {
@@ -273,12 +273,12 @@ impl UiElementParent for UiTemplate {
 
 pub struct UiComponent {
   el: Ui,
-  lua: Option<Rc<RefCell<Lua>>>,
+  lua: Option<Rc<Lua>>,
   element_mapping: BTreeMap<String, Ui>,
 }
 
 impl UiComponent {
-  fn new(lua: Option<Rc<RefCell<Lua>>>, el: Ui, element_mapping: BTreeMap<String, Ui>) -> Self {
+  fn new(lua: Option<Rc<Lua>>, el: Ui, element_mapping: BTreeMap<String, Ui>) -> Self {
     Self {
       lua,
       el,
@@ -290,8 +290,8 @@ impl UiComponent {
     let lua_type = self.create_lua_type();
     if let Some(lua) = &self.lua {
       unsafe {
-        let _ = (&*lua.as_ptr()).globals().set("document", lua_type);
-        self.el.update(ui, Some(&*lua.as_ptr()), settings);
+        let _ = lua.globals().set("document", lua_type);
+        self.el.update(ui, Some(&lua), settings);
       }
     } else {
       self.el.update(ui, None, settings);
@@ -300,7 +300,6 @@ impl UiComponent {
 
   fn initialize(&self, data: Value) {
     if let Some(lua) = &self.lua {
-      let lua = lua.borrow();
       let globals = lua.globals();
       if let Ok(true) = globals.contains_key("initialize") {
         let res: Result<(), mlua::Error> = globals.call_function("initialize", data);

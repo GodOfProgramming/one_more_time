@@ -88,7 +88,7 @@ impl App {
     );
     let lua_ui_manager = ui_manager.create_lua_type();
 
-    scripts.register_init_fn(Box::new(move |lua: &mut Lua| {
+    scripts.register_init_fn(Box::new(move |lua| {
       let globals = lua.globals();
       let _ = globals.set("UiManager", lua_ui_manager);
     }));
@@ -119,6 +119,8 @@ impl App {
     let test_obj_uniforms = uniform! {
       tex: grass_tex,
     };
+
+    // window.poll_events(test_obj_uniforms, &mut imgui_ctx);
 
     let test_obj_params = glium::DrawParameters::default();
 

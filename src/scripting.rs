@@ -41,8 +41,8 @@ pub trait LuaTypeTrait {
 }
 
 pub struct ScriptRepository {
-  init_fns: Vec<Box<dyn Fn(&mut Lua)>>,
-  scripts: BTreeMap<DirID, Rc<RefCell<Lua>>>,
+  init_fns: Vec<Box<dyn Fn(&Lua)>>,
+  scripts: BTreeMap<DirID, Rc<Lua>>,
   sources: BTreeMap<DirID, String>,
 }
 
@@ -61,9 +61,7 @@ impl ScriptRepository {
     for (path, id) in iter {
       logger.info(format!("loading {:?} as id {:?}", path, id));
       if let Ok(src) = fs::read_to_string(&path) {
-        ret
-          .scripts
-          .insert(id.clone(), Rc::new(RefCell::new(Lua::new())));
+        ret.scripts.insert(id.clone(), Rc::new(Lua::new()));
         ret.sources.insert(id, src);
       } else {
         logger.error(format!("could not read {:?}", path));
@@ -73,7 +71,7 @@ impl ScriptRepository {
     ret
   }
 
-  pub fn register_init_fn(&mut self, f: Box<dyn Fn(&mut Lua)>) {
+  pub fn register_init_fn(&mut self, f: Box<dyn Fn(&Lua)>) {
     self.init_fns.push(f);
   }
 
@@ -84,15 +82,15 @@ impl ScriptRepository {
       let lua = self.scripts.get(key).unwrap();
       let src = self.sources.get(key).unwrap();
       for f in &self.init_fns {
-        f(&mut lua.borrow_mut());
+        f(&lua);
       }
-      if let Err(e) = lua.borrow().load(&src).exec() {
+      if let Err(e) = lua.load(&src).exec() {
         logger.error(format!("could not load {:?}: {}", key, e));
       }
     }
   }
 
-  pub fn get(&self, id: &str) -> Option<Rc<RefCell<Lua>>> {
+  pub fn get(&self, id: &str) -> Option<Rc<Lua>> {
     self.scripts.get(&DirID::from(id)).cloned()
   }
 }
