@@ -99,7 +99,12 @@ impl App {
 
     let triangle = Triangle::new();
     let triangle_vbuff = glium::VertexBuffer::new(&gl_context, &triangle.vertices).unwrap();
-    let triangle_ibuff = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
+    let triangle_ibuff = glium::index::IndexBuffer::new(
+      &gl_context,
+      glium::index::PrimitiveType::TrianglesList,
+      &triangle.indices,
+    )
+    .unwrap();
     let triangle_shader = shader_repository.get("test.basic").unwrap();
 
     let triangle_uniforms = glium::uniforms::EmptyUniforms;

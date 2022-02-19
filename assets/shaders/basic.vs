@@ -1,7 +1,10 @@
 #import "version_directive.glsl"
 #import "vertex_layout.glsl"
 
+out vec3 color;
+
 void main()
 {
-  gl_Position = vec4(pos, 0.0, 1.0);
+  color = norm;
+  gl_Position = vec4(pos.xyz, 1.0);
 }
