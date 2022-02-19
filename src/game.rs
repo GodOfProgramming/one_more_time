@@ -22,7 +22,7 @@ use imgui_glium_renderer::glium::{
 };
 use imgui_glium_renderer::imgui;
 use mlua::{UserData, UserDataMethods, Value};
-use world::{EntityRepository, ModelRepository};
+use world::{EntityRepository, Map, MapData, ModelRepository};
 
 #[derive(PartialEq)]
 enum State {
@@ -115,15 +115,21 @@ impl App {
 
     let mut puffin_ui = puffin_imgui::ProfilerUi::default();
 
-    let test_obj = entity_repository
-      .construct(
-        "characters.test.square",
-        scripts,
-        &shader_repository,
-        &model_repository,
-        &texture_repository,
-      )
-      .unwrap();
+    let map_data = MapData {
+      width: 0,
+      height: 0,
+    };
+    let mut map = Map::new(
+      map_data,
+      self.logger.spawn(),
+      &entity_repository,
+      scripts,
+      &shader_repository,
+      &model_repository,
+      &texture_repository,
+    );
+
+    map.spawn_entity("characters.test.square");
 
     window.show();
 
@@ -149,6 +155,8 @@ impl App {
 
       // game logic
 
+      map.update();
+
       i += 0.1;
 
       // post process game logic
@@ -171,7 +179,7 @@ impl App {
 
       // draw objects
 
-      test_obj.draw(&mut frame);
+      map.draw_to(&mut frame);
 
       // draw ui
 

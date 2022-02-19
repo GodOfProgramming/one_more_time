@@ -2,7 +2,7 @@ use crate::{
   gfx::*,
   math::glm,
   scripting::prelude::*,
-  util::{DirID, Logger},
+  util::{ChildLogger, DirID, Logger},
 };
 use imgui_glium_renderer::glium::{
   backend::Facade,
@@ -13,7 +13,7 @@ use imgui_glium_renderer::glium::{
   Surface,
 };
 use mlua::Table;
-use std::{collections::BTreeMap, fs, path::PathBuf, rc::Rc};
+use std::{cell::RefCell, collections::BTreeMap, fs, path::PathBuf, rc::Rc};
 use toml::Value;
 
 mod keys {
@@ -233,7 +233,7 @@ impl Entity {
     }
   }
 
-  pub fn draw<S: Surface>(&self, surface: &mut S) {
+  pub fn draw_to<S: Surface>(&self, surface: &mut S) {
     if let Some(shader) = &self.shader {
       if let Some(model) = &self.model {
         if let Some(texture) = &self.texture {
@@ -262,31 +262,123 @@ impl UserData for MutPtr<Entity> {}
 #[derive(Clone)]
 pub struct Tile;
 
+#[derive(Default)]
 pub struct MapData {
-  width: usize,
-  height: usize,
+  pub width: usize,
+  pub height: usize,
 }
 
-struct Map {
+pub struct Map<'r> {
   data: MapData,
   tiles: Vec<Tile>,
-  entities: BTreeMap<String, Entity>,
+  named_entities: BTreeMap<String, Rc<RefCell<Entity>>>,
+  anonymous_entities: Vec<Rc<RefCell<Entity>>>,
+  static_entities: Vec<ConstPtr<Entity>>,
+  mutable_entities: Vec<MutPtr<Entity>>,
+  drawable_entities: Vec<ConstPtr<Entity>>,
+
+  logger: ChildLogger,
+
+  entities: &'r EntityRepository,
+  scripts: &'r ScriptRepository,
+  shaders: &'r ShaderRepository,
+  models: &'r ModelRepository,
+  textures: &'r TextureRepository,
 }
 
-impl Map {
-  pub fn new(data: MapData) -> Self {
+impl<'r> Map<'r> {
+  pub fn new(
+    data: MapData,
+    logger: ChildLogger,
+    entities: &'r EntityRepository,
+    scripts: &'r ScriptRepository,
+    shaders: &'r ShaderRepository,
+    models: &'r ModelRepository,
+    textures: &'r TextureRepository,
+  ) -> Self {
+    let tiles = vec![Tile; data.width * data.height];
     Self {
-      tiles: vec![Tile; data.width * data.height],
-      entities: Default::default(),
       data,
+      tiles,
+      named_entities: Default::default(),
+      anonymous_entities: Default::default(),
+      static_entities: Default::default(),
+      mutable_entities: Default::default(),
+      drawable_entities: Default::default(),
+
+      logger,
+
+      entities,
+      scripts,
+      shaders,
+      models,
+      textures,
     }
   }
 
   pub fn update(&mut self) {
-    for entity in self.entities.values_mut() {
+    for entity in &mut self.mutable_entities {
       entity.update();
     }
   }
 
-  pub fn spawn_entity(id: String, name: String) {}
+  pub fn draw_to<S: Surface>(&self, surface: &mut S) {
+    for entity in &self.drawable_entities {
+      entity.draw_to(surface);
+    }
+  }
+
+  pub fn spawn_entity(&mut self, id: &str) {
+    let entity =
+      self
+        .entities
+        .construct(id, self.scripts, self.shaders, self.models, self.textures);
+    if let Ok(entity) = entity {
+      let is_mutable = entity.lua.is_some() && !entity.on_update.is_empty();
+      let is_renderable = entity.model.is_some() && entity.texture.is_some();
+
+      let entity = Rc::new(RefCell::new(entity));
+
+      self.anonymous_entities.push(entity.clone());
+
+      if is_renderable {
+        let ptr = MutPtr::from(entity.clone()).into();
+        self.drawable_entities.push(ptr);
+      }
+
+      if is_mutable {
+        let ptr = MutPtr::from(entity);
+        self.mutable_entities.push(ptr);
+      } else {
+        let ptr = MutPtr::from(entity).into();
+        self.static_entities.push(ptr);
+      }
+    } else {
+      self.logger.warn(format!("unable to load entity {}", id));
+    }
+  }
+
+  pub fn spawn_named_entity(&mut self, id: &str, name: String) {
+    let entity =
+      self
+        .entities
+        .construct(id, self.scripts, self.shaders, self.models, self.textures);
+    if let Ok(entity) = entity {
+      let is_static = entity.lua.is_some();
+
+      let entity = Rc::new(RefCell::new(entity));
+
+      self.named_entities.insert(name, entity.clone());
+
+      if is_static {
+        let ptr = MutPtr::from(entity).into();
+        self.static_entities.push(ptr);
+      } else {
+        let ptr = MutPtr::from(entity);
+        self.mutable_entities.push(ptr);
+      }
+    } else {
+      // todo
+    }
+  }
 }

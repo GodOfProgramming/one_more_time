@@ -1,4 +1,8 @@
-use std::ops::{Deref, DerefMut};
+use std::{
+  cell::RefCell,
+  ops::{Deref, DerefMut},
+  rc::Rc,
+};
 
 pub mod prelude {
   pub use super::*;
@@ -33,6 +37,12 @@ impl<T: Sized> From<MutPtr<T>> for ConstPtr<T> {
   }
 }
 
+impl<T> From<Rc<T>> for ConstPtr<T> {
+  fn from(ptr: Rc<T>) -> Self {
+    Self(ptr.as_ref())
+  }
+}
+
 pub struct MutPtr<T: Sized>(*mut T);
 
 impl<T: Sized> Clone for MutPtr<T> {
@@ -41,9 +51,9 @@ impl<T: Sized> Clone for MutPtr<T> {
   }
 }
 
-impl<T: Sized> Copy for MutPtr<T> {}
+impl<T> Copy for MutPtr<T> {}
 
-impl<T: Sized> MutPtr<T> {
+impl<T> MutPtr<T> {
   pub fn raw(&self) -> *mut T {
     self.0
   }
@@ -59,6 +69,12 @@ impl<T> Deref for MutPtr<T> {
 impl<T> DerefMut for MutPtr<T> {
   fn deref_mut(&mut self) -> &mut Self::Target {
     unsafe { &mut *self.0 }
+  }
+}
+
+impl<T> From<Rc<RefCell<T>>> for MutPtr<T> {
+  fn from(ptr: Rc<RefCell<T>>) -> Self {
+    Self(ptr.as_ptr())
   }
 }
 
