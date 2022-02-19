@@ -60,15 +60,6 @@ impl ScriptRepository {
     }
   }
 
-  fn unload_scripts(mut self) {
-    let scripts = mem::take(&mut self.scripts);
-    for (_, script) in scripts {
-      unsafe {
-        Lua::from_static(script);
-      }
-    }
-  }
-
   pub fn get(&self, id: &str) -> Option<&'static Lua> {
     self.scripts.get(&DirID::from(id)).cloned()
   }
@@ -76,7 +67,11 @@ impl ScriptRepository {
 
 impl Drop for ScriptRepository {
   fn drop(&mut self) {
-    let orig = mem::take(self);
-    orig.unload_scripts();
+    let scripts = mem::take(&mut self.scripts);
+    for (_, script) in scripts {
+      unsafe {
+        Lua::from_static(script);
+      }
+    }
   }
 }
