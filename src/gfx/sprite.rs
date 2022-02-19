@@ -42,3 +42,23 @@ impl Triangle {
     Self { vertices, indices }
   }
 }
+
+pub struct Square {
+  pub vertices: [Vertex; 4],
+  pub indices: [u32; 6],
+}
+
+impl Square {
+  pub fn new() -> Self {
+    let vertices = [
+      Vertex::new_with_pos_norm(Vec3::new(-0.5, -0.5, 0.0), Vec3::new(1.0, 0.0, 0.0)),
+      Vertex::new_with_pos_norm(Vec3::new(-0.5, 0.5, 0.0), Vec3::new(0.0, 1.0, 0.0)),
+      Vertex::new_with_pos_norm(Vec3::new(0.5, 0.5, 0.0), Vec3::new(0.0, 0.0, 1.0)),
+      Vertex::new_with_pos_norm(Vec3::new(0.5, -0.5, 0.0), Vec3::new(0.0, 0.0, 1.0)),
+    ];
+
+    let indices = [0, 1, 2, 2, 3, 0];
+
+    Self { vertices, indices }
+  }
+}

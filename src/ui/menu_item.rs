@@ -37,8 +37,8 @@ impl UiElement for MenuItem {
       if let Some(on_click) = &self.on_click {
         if let Some(lua) = lua {
           let res: Result<(), mlua::Error> = lua.globals().call_function(on_click.as_str(), ());
-          if let Err(e) = res {
-            println!("error {}", e);
+          if let Err(_e) = res {
+            // todo
           }
         }
       }

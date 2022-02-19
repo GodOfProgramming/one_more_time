@@ -2,5 +2,5 @@
 /logs
 /assets/shaders/out
 /assets/textures
-
+settings.toml
 imgui.ini

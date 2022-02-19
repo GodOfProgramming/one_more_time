@@ -114,8 +114,12 @@ impl ShaderSources {
     }
   }
 
-  pub fn load_all<L: Logger>(&mut self, dirs: &Dirs, logger: &L) {
-    for (path, id) in RecursiveDirIteratorWithID::from(&dirs.assets.cfg.shaders) {
+  pub fn load_all<L, I>(&mut self, logger: &L, iter: I)
+  where
+    L: Logger,
+    I: Iterator<Item = (PathBuf, DirID)>,
+  {
+    for (path, id) in iter {
       let data = fs::read_to_string(&path)
         .map_err(|e| format!("cannot find {:?}, err = {}", path, e))
         .unwrap();

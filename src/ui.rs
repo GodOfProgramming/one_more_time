@@ -304,8 +304,8 @@ impl UiComponent {
       let globals = lua.globals();
       if let Ok(true) = globals.contains_key("initialize") {
         let res: Result<(), mlua::Error> = globals.call_function("initialize", data);
-        if let Err(e) = res {
-          println!("error {}", e);
+        if let Err(_e) = res {
+          // todo
         }
       }
     }

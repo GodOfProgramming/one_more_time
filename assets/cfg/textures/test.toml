@@ -1,0 +1,5 @@
+[player]
+file = "link.png"
+
+[ground]
+file = "grass.png"

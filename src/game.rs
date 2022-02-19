@@ -1,3 +1,5 @@
+mod world;
+
 use crate::{
   gfx::*,
   input::{
@@ -58,14 +60,19 @@ impl App {
 
     // shaders
     let mut shaders = ShaderSources::new();
-    shaders.load_all(dirs, &self.logger);
+    shaders.load_all(
+      &self.logger,
+      RecursiveDirIteratorWithID::from(&dirs.assets.cfg.shaders),
+    );
     let shader_repository = shaders.load_repository(&gl_context, &self.logger);
 
-    for id in shader_repository.list() {
-      self.logger.info(id);
-    }
-
     // textures
+    let mut texture_sources = TextureSources::default();
+    texture_sources.load_all(
+      &self.logger,
+      RecursiveDirIteratorWithID::from(&dirs.assets.textures),
+    );
+    let texture_repository = texture_sources.load_repository(&self.logger, &gl_context);
 
     // ui
     let mut imgui_ctx = imgui_glium_renderer::imgui::Context::create();
@@ -97,19 +104,19 @@ impl App {
 
     /* =============================================================================================== */
 
-    let triangle = Triangle::new();
-    let triangle_vbuff = glium::VertexBuffer::new(&gl_context, &triangle.vertices).unwrap();
-    let triangle_ibuff = glium::index::IndexBuffer::new(
+    let test_obj = Square::new();
+    let test_obj_vbuff = glium::VertexBuffer::new(&gl_context, &test_obj.vertices).unwrap();
+    let test_obj_ibuff = glium::index::IndexBuffer::new(
       &gl_context,
       glium::index::PrimitiveType::TrianglesList,
-      &triangle.indices,
+      &test_obj.indices,
     )
     .unwrap();
-    let triangle_shader = shader_repository.get("test.basic").unwrap();
+    let test_obj_shader = shader_repository.get("test.basic").unwrap();
 
-    let triangle_uniforms = glium::uniforms::EmptyUniforms;
+    let test_obj_uniforms = glium::uniforms::EmptyUniforms;
 
-    let triangle_params = glium::DrawParameters::default();
+    let test_obj_params = glium::DrawParameters::default();
 
     /* =============================================================================================== */
 
@@ -161,11 +168,11 @@ impl App {
 
       frame
         .draw(
-          &triangle_vbuff,
-          &triangle_ibuff,
-          triangle_shader,
-          &triangle_uniforms,
-          &triangle_params,
+          &test_obj_vbuff,
+          &test_obj_ibuff,
+          test_obj_shader,
+          &test_obj_uniforms,
+          &test_obj_params,
         )
         .unwrap();
 

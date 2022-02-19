@@ -51,12 +51,9 @@ impl UiElement for Window {
   }
 
   fn set_attrib(&mut self, attrib: String, value: Value) {
-    println!("setting {} to {:?}", attrib, value);
     match attrib.as_str() {
       "title" => {
-        println!("found title");
         if let Value::String(s) = value {
-          println!("is string");
           self.title = string::into_cstring(s.to_str().unwrap());
         }
       }

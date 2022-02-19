@@ -30,7 +30,6 @@ impl UiManager {
       if let Ok(xml) = std::fs::read_to_string(&entry) {
         if let Ok(mut nodes) = XmlNode::parse(&xml) {
           if let Some(node) = nodes.drain(..).next() {
-            println!("storing {:?}", id);
             manager
               .templates
               .insert(id, UiTemplate::new(node, logger, scripts));

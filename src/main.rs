@@ -33,8 +33,6 @@ fn main() {
   let mut settings = Settings::load(settings_file).unwrap();
   let lua_settings = settings.create_lua_type();
 
-  logger.info(format!("Settings: {:#?}", settings));
-
   let mut input_devices = InputDevices::default();
 
   let mut script_repo = ScriptRepository::new(
