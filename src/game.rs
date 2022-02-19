@@ -18,7 +18,7 @@ use imgui_glium_renderer::glium::{
   backend::Context,
   debug::DebugCallbackBehavior,
   debug::{MessageType, Severity, Source},
-  Surface,
+  uniform, Surface,
 };
 use imgui_glium_renderer::imgui;
 use mlua::{Lua, UserData, UserDataMethods, Value};
@@ -114,7 +114,11 @@ impl App {
     .unwrap();
     let test_obj_shader = shader_repository.get("test.basic").unwrap();
 
-    let test_obj_uniforms = glium::uniforms::EmptyUniforms;
+    let grass_tex = texture_repository.get("grass").unwrap();
+
+    let test_obj_uniforms = uniform! {
+      tex: grass_tex,
+    };
 
     let test_obj_params = glium::DrawParameters::default();
 

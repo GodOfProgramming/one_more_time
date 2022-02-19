@@ -1,4 +1,4 @@
-use crate::math::glm::Vec3;
+use crate::math::glm::{Vec2, Vec3};
 use imgui_glium_renderer::glium::implement_vertex;
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -9,16 +9,20 @@ pub struct Vertex {
 }
 
 impl Vertex {
+  pub fn new(pos: Vec3, norm: Vec3, uv: Vec2) -> Self {
+    Self {
+      pos: [pos.x, pos.y, pos.z],
+      norm: [norm.x, norm.y, norm.z],
+      uv: [uv.x, uv.y],
+    }
+  }
+
   pub fn new_with_pos(pos: Vec3) -> Self {
     Self::new_with_pos_norm(pos, Default::default())
   }
 
   pub fn new_with_pos_norm(pos: Vec3, norm: Vec3) -> Self {
-    Self {
-      pos: [pos.x, pos.y, pos.z],
-      norm: [norm.x, norm.y, norm.z],
-      uv: Default::default(),
-    }
+    Self::new(pos, norm, Default::default())
   }
 }
 
@@ -51,10 +55,26 @@ pub struct Square {
 impl Square {
   pub fn new() -> Self {
     let vertices = [
-      Vertex::new_with_pos_norm(Vec3::new(-0.5, -0.5, 0.0), Vec3::new(1.0, 0.0, 0.0)),
-      Vertex::new_with_pos_norm(Vec3::new(-0.5, 0.5, 0.0), Vec3::new(0.0, 1.0, 0.0)),
-      Vertex::new_with_pos_norm(Vec3::new(0.5, 0.5, 0.0), Vec3::new(0.0, 0.0, 1.0)),
-      Vertex::new_with_pos_norm(Vec3::new(0.5, -0.5, 0.0), Vec3::new(0.0, 0.0, 1.0)),
+      Vertex::new(
+        Vec3::new(-0.5, -0.5, 0.0),
+        Vec3::new(1.0, 0.0, 0.0),
+        Vec2::new(0.0, 0.0),
+      ),
+      Vertex::new(
+        Vec3::new(-0.5, 0.5, 0.0),
+        Vec3::new(0.0, 1.0, 0.0),
+        Vec2::new(0.0, 1.0),
+      ),
+      Vertex::new(
+        Vec3::new(0.5, 0.5, 0.0),
+        Vec3::new(0.0, 0.0, 1.0),
+        Vec2::new(1.0, 1.0),
+      ),
+      Vertex::new(
+        Vec3::new(0.5, -0.5, 0.0),
+        Vec3::new(0.0, 0.0, 1.0),
+        Vec2::new(1.0, 0.0),
+      ),
     ];
 
     let indices = [0, 1, 2, 2, 3, 0];
