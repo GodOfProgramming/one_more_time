@@ -1,3 +1,4 @@
+use crate::util::ptr::prelude::*;
 use std::{
   ffi::{OsStr, OsString},
   fmt::Display,
@@ -64,6 +65,8 @@ impl Dirs {
     }
   }
 }
+
+impl AsPtr for Dirs {}
 
 #[derive(Default, Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct DirID {

@@ -1,59 +1,67 @@
-use super::{UiComponentPtr, UiTemplate};
+use super::{common::*, UiComponentPtr, UiTemplate};
 use crate::{
   scripting::prelude::*,
-  util::{DirID, Logger, Settings, XmlNode},
+  util::{ChildLogger, DirID, Logger, Settings, XmlNode},
 };
 use imgui_glium_renderer::imgui::Ui;
 use mlua::{UserData, UserDataMethods, Value};
 use std::{collections::BTreeMap, path::PathBuf};
 
-#[derive(Default)]
 pub struct UiManager {
   templates: BTreeMap<DirID, UiTemplate>,
   open_ui: BTreeMap<String, UiComponentPtr>,
+  logger: ChildLogger,
 }
 
 impl UiManager {
-  pub fn new<L: Logger, I>(logger: &L, iter: I, scripts: &ScriptRepository) -> Self
+  pub fn new(logger: ChildLogger) -> Self {
+    Self {
+      logger,
+      templates: Default::default(),
+      open_ui: Default::default(),
+    }
+  }
+
+  pub fn load_ui<I>(&mut self, iter: I, scripts: &ScriptRepository)
   where
     I: Iterator<Item = (PathBuf, DirID)>,
   {
-    let mut manager = Self::default();
-
-    logger.debug("loading ui".to_string());
+    self.logger.debug("loading ui".to_string());
 
     for (entry, id) in iter {
-      logger.debug(format!("reading entry {:?}", entry));
+      self.logger.debug(format!("reading entry {:?}", entry));
       if let Ok(xml) = std::fs::read_to_string(&entry) {
         if let Ok(mut nodes) = XmlNode::parse(&xml) {
           if let Some(node) = nodes.drain(..).next() {
-            manager
+            self
               .templates
-              .insert(id, UiTemplate::new(node, logger, scripts));
+              .insert(id, UiTemplate::new(node, &self.logger, scripts));
           } else {
-            logger.error(format!("xml {:?} was empty", entry));
+            self.logger.error(format!("xml {:?} was empty", entry));
           }
         } else {
-          logger.error(format!("failed to parse xml for {:?}", entry));
+          self
+            .logger
+            .error(format!("failed to parse xml for {:?}", entry));
         }
       } else {
-        logger.error(format!("unable to read file {:?}", entry));
+        self
+          .logger
+          .error(format!("unable to read file {:?}", entry));
       }
     }
-
-    manager
   }
 
   #[profiling::function]
-  pub fn update(&mut self, ui: &Ui<'_>, settings: &Settings) {
+  pub fn update(&mut self, logger: &dyn Logger, ui: &Ui<'_>, settings: &Settings) {
     for element in self.open_ui.values_mut() {
-      element.component().update(ui, settings);
+      element.component().update(logger, ui, settings);
     }
   }
 
   pub fn open(&mut self, id: &str, name: &str, data: Value) -> Option<UiComponentPtr> {
     if let Some(tmpl) = self.templates.get(&DirID::from(id)) {
-      let component = tmpl.create_component(data);
+      let component = tmpl.create_component(&self.logger, data);
       self.open_ui.insert(name.to_string(), component.clone());
       Some(component)
     } else {

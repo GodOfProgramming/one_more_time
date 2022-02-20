@@ -3,19 +3,19 @@ use prelude::*;
 use std::{collections::BTreeMap, fs, mem, path::PathBuf};
 
 pub mod prelude {
-  pub use super::ScriptRepository;
+  pub use super::{ScriptInit, ScriptLoader, ScriptRepository};
   pub use crate::util::ptr::prelude::*;
   pub use mlua::{prelude::*, Lua, UserData, UserDataFields, UserDataMethods};
 }
 
 #[derive(Default)]
-pub struct ScriptRepository {
+pub struct ScriptLoader {
   init_fns: Vec<Box<dyn Fn(&Lua)>>,
   scripts: BTreeMap<DirID, &'static Lua>,
   sources: BTreeMap<DirID, String>,
 }
 
-impl ScriptRepository {
+impl ScriptLoader {
   pub fn new<L, I>(logger: &L, iter: I) -> Self
   where
     L: Logger,
@@ -45,7 +45,7 @@ impl ScriptRepository {
     self.init_fns.push(f);
   }
 
-  pub fn load_scripts<L: Logger>(&mut self, logger: &L) {
+  pub fn load_scripts<L: Logger>(mut self, logger: &L) -> ScriptRepository {
     logger.debug("loading scripts".to_string());
     let keys = self.sources.keys();
     for key in keys {
@@ -58,8 +58,19 @@ impl ScriptRepository {
         logger.error(format!("could not load {:?}: {}", key, e));
       }
     }
-  }
 
+    let scripts = std::mem::take(&mut self.scripts);
+
+    ScriptRepository { scripts }
+  }
+}
+
+#[derive(Default)]
+pub struct ScriptRepository {
+  scripts: BTreeMap<DirID, &'static Lua>,
+}
+
+impl ScriptRepository {
   pub fn get(&self, id: &str) -> Option<&'static Lua> {
     self.scripts.get(&DirID::from(id)).cloned()
   }
@@ -74,4 +85,8 @@ impl Drop for ScriptRepository {
       }
     }
   }
+}
+
+pub trait ScriptInit {
+  fn callback(lua: &Lua);
 }

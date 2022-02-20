@@ -1,3 +1,17 @@
+use common::*;
+use dyn_clone::DynClone;
+use imgui_glium_renderer::imgui;
+use lazy_static::lazy_static;
+use log::warn;
+use maplit::hashmap;
+use mlua::Value;
+use std::{
+  cell::RefCell,
+  collections::{BTreeMap, HashMap},
+  rc::Rc,
+};
+
+pub use ui_manager::UiManager;
 pub mod main_menu_bar;
 pub mod menu;
 pub mod menu_item;
@@ -17,7 +31,7 @@ pub mod common {
   pub use super::{types, SubElementMap, Ui, UiElement, UiElementParent, UiElementPtr};
   pub use crate::{
     type_map,
-    util::{convert::string, ChildLogger, Settings, XmlNode},
+    util::{convert::string, ChildLogger, Logger, MainLogger, Settings, XmlNode},
   };
   pub use imgui_glium_renderer::imgui::{self, ImStr};
   pub use lazy_static::lazy_static;
@@ -63,19 +77,6 @@ pub mod types {
   pub const MENU_ITEM: UiComponentKvp = ("menu-item", create_menu_item);
 }
 
-use dyn_clone::DynClone;
-use imgui_glium_renderer::imgui;
-use lazy_static::lazy_static;
-use log::warn;
-use maplit::hashmap;
-use mlua::Value;
-use std::{
-  cell::RefCell,
-  collections::{BTreeMap, HashMap},
-  rc::Rc,
-};
-pub use ui_manager::UiManager;
-
 #[macro_export]
 macro_rules! type_map {
     [ $( $feat:ident ),* ] => {
@@ -100,7 +101,13 @@ pub trait UiElement: DynClone {
     panic!("'set_attrib' not implemented")
   }
 
-  fn update(&mut self, _ui: &imgui::Ui<'_>, _lua: Option<&Lua>, _settings: &Settings) {
+  fn update(
+    &mut self,
+    _logger: &dyn Logger,
+    _ui: &imgui::Ui<'_>,
+    _lua: Option<&Lua>,
+    _settings: &Settings,
+  ) {
     panic!("'update' not implemented");
   }
 
@@ -149,8 +156,14 @@ impl UiElement for Ui {
     self.el_mut().set_attrib(attrib, value);
   }
 
-  fn update(&mut self, ui: &imgui::Ui<'_>, lua: Option<&Lua>, settings: &Settings) {
-    self.el_mut().update(ui, lua, settings);
+  fn update(
+    &mut self,
+    logger: &dyn Logger,
+    ui: &imgui::Ui<'_>,
+    lua: Option<&Lua>,
+    settings: &Settings,
+  ) {
+    self.el_mut().update(logger, ui, lua, settings);
   }
 
   fn dupe(&self) -> UiElementPtr {
@@ -219,12 +232,12 @@ impl UiTemplate {
     root
   }
 
-  pub fn create_component(&self, data: Value) -> UiComponentPtr {
+  pub fn create_component<L: Logger>(&self, logger: &L, data: Value) -> UiComponentPtr {
     let mut id_map = BTreeMap::new();
     let el = self.el.clone_ui(&mut id_map);
     let component = UiComponent::new(self.lua, el, id_map);
 
-    component.initialize(data);
+    component.initialize(logger, data);
 
     UiComponentPtr::new(component)
   }
@@ -266,23 +279,23 @@ impl UiComponent {
     }
   }
 
-  fn update(&mut self, ui: &imgui::Ui<'_>, settings: &Settings) {
+  fn update(&mut self, logger: &dyn Logger, ui: &imgui::Ui<'_>, settings: &Settings) {
     let ptr = self.as_ptr_mut();
     if let Some(lua) = &self.lua {
       let _ = lua.globals().set("document", ptr);
-      self.el.update(ui, Some(lua), settings);
+      self.el.update(logger, ui, Some(lua), settings);
     } else {
-      self.el.update(ui, None, settings);
+      self.el.update(logger, ui, None, settings);
     }
   }
 
-  fn initialize(&self, data: Value) {
+  fn initialize<L: Logger>(&self, logger: &L, data: Value) {
     if let Some(lua) = &self.lua {
       let globals = lua.globals();
       if let Ok(true) = globals.contains_key("initialize") {
         let res: Result<(), mlua::Error> = globals.call_function("initialize", data);
-        if let Err(_e) = res {
-          // todo
+        if let Err(e) = res {
+          logger.error(e.to_string());
         }
       }
     }

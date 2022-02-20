@@ -33,12 +33,18 @@ impl UiElement for Menu {
     self.id.clone()
   }
 
-  fn update(&mut self, ui: &imgui::Ui<'_>, lua: Option<&Lua>, settings: &Settings) {
+  fn update(
+    &mut self,
+    logger: &dyn Logger,
+    ui: &imgui::Ui<'_>,
+    lua: Option<&Lua>,
+    settings: &Settings,
+  ) {
     let im_str = unsafe { ImStr::from_cstr_unchecked(&self.name) };
     let children = &mut self.children;
     if let Some(menu) = ui.begin_menu(im_str) {
       for child in children.iter_mut() {
-        child.update(ui, lua, settings);
+        child.update(logger, ui, lua, settings);
       }
       menu.end();
     }

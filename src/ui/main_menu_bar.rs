@@ -25,10 +25,16 @@ impl UiElement for MainMenuBar {
     self.id.clone()
   }
 
-  fn update(&mut self, ui: &imgui::Ui<'_>, lua: Option<&Lua>, settings: &Settings) {
+  fn update(
+    &mut self,
+    logger: &dyn Logger,
+    ui: &imgui::Ui<'_>,
+    lua: Option<&Lua>,
+    settings: &Settings,
+  ) {
     ui.main_menu_bar(|| {
       for child in self.children.iter_mut() {
-        child.update(ui, lua, settings);
+        child.update(logger, ui, lua, settings);
       }
     });
   }

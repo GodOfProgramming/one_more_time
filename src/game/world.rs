@@ -223,12 +223,12 @@ pub struct Entity {
 }
 
 impl Entity {
-  pub fn update(&mut self) {
+  pub fn update<L: Logger>(&mut self, logger: &L) {
     let ptr = self.as_ptr_mut();
     if let Some(lua) = &self.lua {
       let res: Result<(), mlua::Error> = lua.globals().call_function(self.on_update.as_str(), ptr);
-      if let Err(_e) = res {
-        // todo
+      if let Err(e) = res {
+        logger.error(e.to_string());
       }
     }
   }
@@ -316,9 +316,9 @@ impl<'r> Map<'r> {
     }
   }
 
-  pub fn update(&mut self) {
+  pub fn update<L: Logger>(&mut self, logger: &L) {
     for entity in &mut self.mutable_entities {
-      entity.update();
+      entity.update(logger);
     }
   }
 
@@ -354,7 +354,7 @@ impl<'r> Map<'r> {
         self.static_entities.push(ptr);
       }
     } else {
-      self.logger.warn(format!("unable to load entity {}", id));
+      self.logger.warn(format!("unable to load entity '{}'", id));
     }
   }
 
@@ -378,7 +378,10 @@ impl<'r> Map<'r> {
         self.mutable_entities.push(ptr);
       }
     } else {
-      // todo
+      self.logger.warn(format!(
+        "unable to load entity '{}' with name '{}'",
+        id, name
+      ));
     }
   }
 }

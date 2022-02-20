@@ -71,7 +71,13 @@ impl UiElement for Window {
     }
   }
 
-  fn update(&mut self, ui: &imgui::Ui<'_>, lua: Option<&Lua>, settings: &Settings) {
+  fn update(
+    &mut self,
+    logger: &dyn Logger,
+    ui: &imgui::Ui<'_>,
+    lua: Option<&Lua>,
+    settings: &Settings,
+  ) {
     let im_str = unsafe { ImStr::from_cstr_unchecked(&self.title) };
     let children = &mut self.children;
     imgui::Window::new(&im_str)
@@ -80,7 +86,7 @@ impl UiElement for Window {
       .bg_alpha(if self.transparent { 0.0 } else { 1.0 })
       .build(ui, || {
         for child in children.iter_mut() {
-          child.update(ui, lua, settings);
+          child.update(logger, ui, lua, settings);
         }
       });
   }

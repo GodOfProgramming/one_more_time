@@ -1,0 +1,3 @@
+[submodule "assets/scripts/cpml"]
+	path = assets/scripts/cpml
+	url = git@github.com:excessive/cpml.git

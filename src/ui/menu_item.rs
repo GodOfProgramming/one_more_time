@@ -31,14 +31,20 @@ impl UiElement for MenuItem {
     self.id.clone()
   }
 
-  fn update(&mut self, ui: &imgui::Ui<'_>, lua: Option<&Lua>, _settings: &Settings) {
+  fn update(
+    &mut self,
+    logger: &dyn Logger,
+    ui: &imgui::Ui<'_>,
+    lua: Option<&Lua>,
+    _settings: &Settings,
+  ) {
     let im_str = unsafe { ImStr::from_cstr_unchecked(&self.name) };
     if imgui::MenuItem::new(im_str).build(ui) {
       if let Some(on_click) = &self.on_click {
         if let Some(lua) = lua {
           let res: Result<(), mlua::Error> = lua.globals().call_function(on_click.as_str(), ());
-          if let Err(_e) = res {
-            // todo
+          if let Err(e) = res {
+            logger.error(e.to_string());
           }
         }
       }

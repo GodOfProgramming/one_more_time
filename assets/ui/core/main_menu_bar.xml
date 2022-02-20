@@ -4,12 +4,13 @@
     <menu name="Game">
       <menu-item name="Show/Hide Profiler" click="show_or_hide_profiler"></menu-item>
       <menu-item name="Show/Hide Demo Window" click="show_or_hide_demo_window"></menu-item>
+      <menu-item name="Exit" click="on_exit"></menu-item>
     </menu>
     <menu name="Debug">
-      <menu-item name="Test" click="test_fn"></menu-item>
-      <menu-item name="Rename" click="rename_window"></menu-item>
       <menu-item name="List Open Ui" click="list_ui"></menu-item>
-      <menu-item name="Exit" click="on_exit"></menu-item>
+      <menu-item name="Create Test Window" click="create_window"></menu-item>
+      <menu-item name="Rename Test Window" click="rename_window"></menu-item>
+      <menu-item name="Test" click="test"></menu-item>
     </menu>
   </main-menu-bar>
 </root>

@@ -23,7 +23,7 @@ fn main() {
 
   let logger = MainLogger::new(LOG_LIMIT);
 
-  let mut app = App::new(logger.spawn());
+  let mut app = App::new(logger);
 
   let cwd = env::current_dir().unwrap(); // unwrap because there's bigger problems if this doesn't work
   let dirs = Dirs::new(cwd);
@@ -32,26 +32,9 @@ fn main() {
 
   let mut input_devices = InputDevices::default();
 
-  let mut script_repo = ScriptRepository::new(
-    &logger,
-    RecursiveDirIteratorWithID::from(&dirs.assets.scripts),
-  );
-
   // set up some top level lua functions
 
-  {
-    let logger_ptr = logger.as_ptr();
-    let app_ptr = app.as_ptr_mut();
-    let settings_ptr = settings.as_ptr_mut();
-    script_repo.register_init_fn(Box::new(move |lua| {
-      let globals = lua.globals();
-      let _ = globals.set("App", app_ptr);
-      let _ = globals.set("Logger", logger_ptr);
-      let _ = globals.set("Settings", settings_ptr);
-    }));
-  }
-
-  app.run(&mut settings, &dirs, &mut input_devices, &mut script_repo);
+  app.run(&mut settings, &dirs, &mut input_devices);
 
   settings.save(settings_file).unwrap();
 }

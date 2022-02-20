@@ -24,7 +24,13 @@ impl UiElement for TextBox {
     self.id.clone()
   }
 
-  fn update(&mut self, ui: &imgui::Ui<'_>, _lua: Option<&Lua>, _settings: &Settings) {
+  fn update(
+    &mut self,
+    logger: &dyn Logger,
+    ui: &imgui::Ui<'_>,
+    _lua: Option<&Lua>,
+    _settings: &Settings,
+  ) {
     ui.text(&self.text);
   }
 

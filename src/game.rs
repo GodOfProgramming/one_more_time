@@ -6,10 +6,12 @@ use crate::{
     keyboard::{Key, KeyAction},
     InputCheck, InputDevices,
   },
+  math::lua::*,
   scripting::prelude::*,
   ui::UiManager,
   util::{
-    ChildLogger, Dirs, FpsManager, Logger, RecursiveDirIteratorWithID, Settings, SpawnableLogger,
+    ChildLogger, Dirs, FpsManager, Logger, MainLogger, RecursiveDirIteratorWithID, Settings,
+    SpawnableLogger,
   },
   view::window::Window,
 };
@@ -33,25 +35,19 @@ enum State {
 }
 
 pub struct App {
-  logger: ChildLogger,
+  logger: MainLogger,
   state: State,
 }
 
 impl App {
-  pub fn new(logger: ChildLogger) -> Self {
+  pub fn new(logger: MainLogger) -> Self {
     Self {
       logger,
       state: State::Starting,
     }
   }
 
-  pub fn run(
-    &mut self,
-    settings: &mut Settings,
-    dirs: &Dirs,
-    input_devices: &mut InputDevices,
-    scripts: &mut ScriptRepository,
-  ) {
+  pub fn run(&mut self, settings: &mut Settings, dirs: &Dirs, input_devices: &mut InputDevices) {
     // window
     let (window, draw_interface) = Window::new(settings);
 
@@ -85,16 +81,23 @@ impl App {
       imgui_glium_renderer::Renderer::init(&mut imgui_ctx, &gl_context.clone()).unwrap();
     window.setup_imgui(&mut imgui_ctx);
 
-    let mut ui_manager = UiManager::new(
+    let mut script_loader = ScriptLoader::new(
       &self.logger,
-      RecursiveDirIteratorWithID::from(&dirs.assets.ui),
-      scripts,
+      RecursiveDirIteratorWithID::from(&dirs.assets.scripts),
     );
 
+    let mut ui_manager = UiManager::new(self.logger.spawn());
+
     {
+      let logger_ptr = self.logger.as_ptr();
+      let app_ptr = self.as_ptr_mut();
+      let settings_ptr = settings.as_ptr_mut();
       let ui_manager_ptr = ui_manager.as_ptr_mut();
-      scripts.register_init_fn(Box::new(move |lua| {
+      script_loader.register_init_fn(Box::new(move |lua| {
         let globals = lua.globals();
+        let _ = globals.set("App", app_ptr);
+        let _ = globals.set("Logger", logger_ptr);
+        let _ = globals.set("Settings", settings_ptr);
         let _ = globals.set("UiManager", ui_manager_ptr);
       }));
     }
@@ -107,7 +110,25 @@ impl App {
 
     let mut fps_manager = FpsManager::new(settings.graphics.fps.into());
 
-    scripts.load_scripts(&self.logger);
+    // script module functions
+    {
+      let dirs_ptr = dirs.as_ptr();
+      script_loader.register_init_fn(Box::new(move |lua: &Lua| {
+        let package: mlua::Table = lua.globals().get("package").unwrap();
+        let path: String = package.get("path").unwrap();
+        let path = format!(
+          "{}/?.lua;{}",
+          dirs_ptr.assets.scripts.to_str().unwrap(),
+          path
+        );
+        package.set("path", path).unwrap();
+      }));
+      script_loader.register_init_fn(Box::new(&LuaVecT::callback));
+    }
+
+    let scripts = script_loader.load_scripts(&self.logger);
+
+    ui_manager.load_ui(RecursiveDirIteratorWithID::from(&dirs.assets.ui), &scripts);
 
     if cfg!(debug_assertions) {
       ui_manager.open("core.main_menu_bar", "debug_main_menu_bar", Value::Nil);
@@ -123,7 +144,7 @@ impl App {
       map_data,
       self.logger.spawn(),
       &entity_repository,
-      scripts,
+      &scripts,
       &shader_repository,
       &model_repository,
       &texture_repository,
@@ -155,7 +176,7 @@ impl App {
 
       // game logic
 
-      map.update();
+      map.update(&self.logger);
 
       i += 0.1;
 
@@ -185,7 +206,7 @@ impl App {
 
       let ui: imgui::Ui<'_> = imgui_ctx.frame();
 
-      ui_manager.update(&ui, settings);
+      ui_manager.update(&self.logger, &ui, settings);
 
       if settings.game.show_profiler {
         puffin_ui.window(&ui);
