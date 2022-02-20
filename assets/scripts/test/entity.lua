@@ -1,5 +1,4 @@
 require "lib.class";
-local inspect = require "lib.inspect";
 
 Square = class { body = { count = 0 } };
 

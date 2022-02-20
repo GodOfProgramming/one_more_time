@@ -1,3 +1,4 @@
+mod cam;
 mod world;
 
 use crate::{
@@ -14,6 +15,7 @@ use crate::{
   },
   view::window::Window,
 };
+pub use cam::Camera;
 use imgui_glium_renderer::glium::{
   self,
   backend::Context,
@@ -150,6 +152,8 @@ impl App {
 
     map.spawn_entity("characters.test.square");
 
+    let mut camera = Camera::default();
+
     window.show();
 
     let mut i: f32 = 0.0;
@@ -176,6 +180,8 @@ impl App {
 
       map.update(&self.logger);
 
+      camera.update(settings);
+
       i += 0.1;
 
       // post process game logic
@@ -198,7 +204,7 @@ impl App {
 
       // draw objects
 
-      map.draw_to(&mut frame);
+      map.draw_to(&mut frame, &camera);
 
       // draw ui
 

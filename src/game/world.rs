@@ -1,9 +1,10 @@
+use super::Camera;
 use crate::{
   gfx::*,
   scripting::prelude::*,
   util::{ChildLogger, DirID, Logger},
 };
-use imgui_glium_renderer::glium::{texture::SrgbTexture2d, uniform, Surface};
+use imgui_glium_renderer::glium::{self, texture::SrgbTexture2d, uniform, Surface};
 use mlua::Table;
 use std::{cell::RefCell, collections::BTreeMap, fs, path::PathBuf, rc::Rc};
 use toml::Value;
@@ -201,12 +202,19 @@ impl Entity {
     }
   }
 
-  pub fn draw_to<S: Surface>(&self, surface: &mut S) {
+  pub fn draw_to<S: Surface>(&self, surface: &mut S, camera: &Camera) {
     if let Some(shader) = &self.shader {
       if let Some(model) = &self.model {
         if let Some(texture) = &self.texture {
+          use crate::math::glm;
+          let transform = glm::Mat4::default();
+          let transform = transform.scale(10.0);
+          let transform: [[f32; 4]; 4] = transform.into();
           let uniforms = uniform! {
-                tex: &**texture,
+            model: transform,
+            view: camera.view(),
+            projection: camera.projection(),
+            tex: &**texture,
           };
           surface
             .draw(
@@ -290,9 +298,9 @@ impl<'r> Map<'r> {
     }
   }
 
-  pub fn draw_to<S: Surface>(&self, surface: &mut S) {
+  pub fn draw_to<S: Surface>(&self, surface: &mut S, camera: &Camera) {
     for entity in &self.drawable_entities {
-      entity.draw_to(surface);
+      entity.draw_to(surface, camera);
     }
   }
 
