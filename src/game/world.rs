@@ -207,13 +207,16 @@ impl Entity {
       if let Some(model) = &self.model {
         if let Some(texture) = &self.texture {
           use crate::math::glm;
-          let transform = glm::Mat4::default();
-          let transform = transform.scale(10.0);
+          let transform = glm::Mat4::identity();
+          let transform = transform.scale(0.5);
           let transform: [[f32; 4]; 4] = transform.into();
+          let view: [[f32; 4]; 4] = glm::Mat4::identity().into(); // camera.view();
+          let proj: [[f32; 4]; 4] = glm::Mat4::identity().into(); // camera.projection();
+
           let uniforms = uniform! {
             model: transform,
-            view: camera.view(),
-            projection: camera.projection(),
+            view: view,
+            projection: proj,
             tex: &**texture,
           };
           surface

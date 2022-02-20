@@ -37,6 +37,11 @@ end
 
 -- Class creator
 
+--[[
+  @brief Create a new class
+  <br />
+  @param args { super: Class, body: {...} }
+--]]
 function class(args)
     args = args or {};
     args.super = args.super or Class;
