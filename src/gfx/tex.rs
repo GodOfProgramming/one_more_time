@@ -1,4 +1,4 @@
-use crate::util::{DirID, Logger};
+use crate::util::prelude::*;
 use image::{io::Reader, RgbaImage};
 use imgui_glium_renderer::glium::{
   backend::Facade,
@@ -65,3 +65,5 @@ impl TextureRepository {
     self.textures.get(id).cloned()
   }
 }
+
+impl AsPtr for TextureRepository {}

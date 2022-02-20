@@ -1,4 +1,5 @@
 use super::*;
+use crate::util::prelude::*;
 use imgui_glium_renderer::glium::{
   backend::Facade,
   index::{IndexBuffer, PrimitiveType},
@@ -64,3 +65,5 @@ impl ModelRepository {
     self.models.get(id).cloned()
   }
 }
+
+impl AsPtr for ModelRepository {}

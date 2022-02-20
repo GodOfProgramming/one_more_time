@@ -1,10 +1,9 @@
-use crate::util::{DirID, Logger, Settings};
 use prelude::*;
 use std::{collections::BTreeMap, fs, mem, path::PathBuf};
 
 pub mod prelude {
-  pub use super::{ScriptInit, ScriptLoader, ScriptRepository};
-  pub use crate::util::ptr::prelude::*;
+  pub use super::{ScriptLoader, ScriptRepository};
+  pub use crate::util::prelude::*;
   pub use mlua::{prelude::*, Lua, UserData, UserDataFields, UserDataMethods};
 }
 
@@ -95,6 +94,4 @@ impl Drop for ScriptRepository {
   }
 }
 
-pub trait ScriptInit {
-  fn callback(lua: &Lua);
-}
+impl AsPtr for ScriptRepository {}

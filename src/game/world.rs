@@ -4,10 +4,11 @@ use crate::{
   scripting::prelude::*,
   util::{ChildLogger, DirID, Logger},
 };
-use imgui_glium_renderer::glium::{self, texture::SrgbTexture2d, uniform, Surface};
+use imgui_glium_renderer::glium::{texture::SrgbTexture2d, uniform, Surface};
 use mlua::Table;
-use std::{cell::RefCell, collections::BTreeMap, fs, path::PathBuf, rc::Rc};
+use std::{collections::BTreeMap, fs, path::PathBuf, rc::Rc};
 use toml::Value;
+use uid::Id;
 
 mod keys {
   pub const SCRIPT: &str = "script";
@@ -16,6 +17,8 @@ mod keys {
   pub const MODEL: &str = "model";
   pub const TEXTURE: &str = "texture";
 }
+
+type EntityId = Id<()>;
 
 pub struct EntityRepository {
   templates: BTreeMap<String, Rc<EntityTemplate>>,
@@ -92,14 +95,15 @@ impl EntityRepository {
 
   pub fn construct(
     &self,
-    id: &str,
+    item_id: &str,
     scripts: &ScriptRepository,
     shaders: &ShaderRepository,
     models: &ModelRepository,
     textures: &TextureRepository,
   ) -> Result<Entity, String> {
-    if let Some(tmpl) = self.templates.get(id) {
-      let mut entity = Entity::default();
+    if let Some(tmpl) = self.templates.get(item_id) {
+      let id = Id::new();
+      let mut entity = Entity::new(id);
 
       if let Some(script) = &tmpl.script {
         if let Some(lua) = scripts.get(script) {
@@ -125,7 +129,7 @@ impl EntityRepository {
                 Ok(_) => {
                   self
                     .logger
-                    .error("invalid type for initalizer function".to_string());
+                    .error("invalid type for initializer function".to_string());
                   lua.create_table().unwrap()
                 }
                 Err(e) => {
@@ -158,10 +162,12 @@ impl EntityRepository {
 
       Ok(entity)
     } else {
-      Err(format!("could not find {}", id))
+      Err(format!("could not find {}", item_id))
     }
   }
 }
+
+impl AsPtr for EntityRepository {}
 
 #[derive(Default)]
 pub struct EntityTemplate {
@@ -174,6 +180,7 @@ pub struct EntityTemplate {
 
 #[derive(Default)]
 pub struct Entity {
+  id: EntityId,
   lua: Option<&'static Lua>,
   class: Option<String>,
   shader: Option<Rc<Shader>>,
@@ -185,7 +192,14 @@ pub struct Entity {
 }
 
 impl Entity {
-  pub fn update<L: Logger>(&mut self, logger: &L) {
+  fn new(id: EntityId) -> Self {
+    Self {
+      id,
+      ..Default::default()
+    }
+  }
+
+  fn update<L: Logger>(&mut self, logger: &L) {
     self.test += 1.0;
     if let Some(lua) = &self.lua {
       if let Some(class) = &self.class {
@@ -193,8 +207,9 @@ impl Entity {
 
         if let Ok(mlua::Value::Table(class)) = globals.get(class.as_str()) {
           if let Ok(mlua::Value::Function(on_update)) = class.get("update") {
+            let handle = self.as_ptr_mut();
             if let Some(data) = &self.data {
-              let res: Result<(), mlua::Error> = on_update.call(data.clone());
+              let res: Result<(), mlua::Error> = on_update.call((data.clone(), handle));
               if let Err(e) = res {
                 logger.error(e.to_string());
               }
@@ -218,8 +233,6 @@ impl Entity {
             &glm::vec3(0.0, 0.0, 1.0),
           );
           let transform: [[f32; 4]; 4] = transform.into();
-          // let view: [[f32; 4]; 4] = glm::Mat4::identity().into();
-          // let proj: [[f32; 4]; 4] = glm::Mat4::identity().into();
           let view = camera.view();
           let proj = camera.projection();
 
@@ -245,11 +258,20 @@ impl Entity {
       }
     }
   }
+
+  fn dispose(&self) {}
 }
 
 impl AsPtr for Entity {}
 
-impl UserData for MutPtr<Entity> {}
+impl UserData for MutPtr<Entity> {
+  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
+    methods.add_method_mut("dispose", |_, this, _: ()| {
+      this.dispose();
+      Ok(())
+    });
+  }
+}
 
 #[derive(Clone)]
 pub struct Tile;
@@ -260,40 +282,38 @@ pub struct MapData {
   pub height: usize,
 }
 
-pub struct Map<'r> {
+pub struct Map {
   data: MapData,
   tiles: Vec<Tile>,
-  named_entities: BTreeMap<String, Rc<RefCell<Entity>>>,
-  anonymous_entities: Vec<Rc<RefCell<Entity>>>,
+  spawned_entities: BTreeMap<EntityId, Box<Entity>>,
   static_entities: Vec<ConstPtr<Entity>>,
   mutable_entities: Vec<MutPtr<Entity>>,
   drawable_entities: Vec<ConstPtr<Entity>>,
 
   logger: ChildLogger,
 
-  entities: &'r EntityRepository,
-  scripts: &'r ScriptRepository,
-  shaders: &'r ShaderRepository,
-  models: &'r ModelRepository,
-  textures: &'r TextureRepository,
+  entities: ConstPtr<EntityRepository>,
+  scripts: ConstPtr<ScriptRepository>,
+  shaders: ConstPtr<ShaderRepository>,
+  models: ConstPtr<ModelRepository>,
+  textures: ConstPtr<TextureRepository>,
 }
 
-impl<'r> Map<'r> {
+impl Map {
   pub fn new(
     data: MapData,
     logger: ChildLogger,
-    entities: &'r EntityRepository,
-    scripts: &'r ScriptRepository,
-    shaders: &'r ShaderRepository,
-    models: &'r ModelRepository,
-    textures: &'r TextureRepository,
+    entities: ConstPtr<EntityRepository>,
+    scripts: ConstPtr<ScriptRepository>,
+    shaders: ConstPtr<ShaderRepository>,
+    models: ConstPtr<ModelRepository>,
+    textures: ConstPtr<TextureRepository>,
   ) -> Self {
     let tiles = vec![Tile; data.width * data.height];
     Self {
       data,
       tiles,
-      named_entities: Default::default(),
-      anonymous_entities: Default::default(),
+      spawned_entities: Default::default(),
       static_entities: Default::default(),
       mutable_entities: Default::default(),
       drawable_entities: Default::default(),
@@ -320,60 +340,39 @@ impl<'r> Map<'r> {
     }
   }
 
-  pub fn spawn_entity(&mut self, id: &str) {
-    let entity =
-      self
-        .entities
-        .construct(id, self.scripts, self.shaders, self.models, self.textures);
+  pub fn spawn(&mut self, item_id: &str) {
+    let entity = self.entities.construct(
+      item_id,
+      &self.scripts,
+      &self.shaders,
+      &self.models,
+      &self.textures,
+    );
+
     if let Ok(entity) = entity {
       let is_mutable = entity.lua.is_some() && entity.class.is_some();
       let is_renderable = entity.model.is_some() && entity.texture.is_some();
 
-      let entity = Rc::new(RefCell::new(entity));
-
-      self.anonymous_entities.push(entity.clone());
+      let mut entity = Box::new(entity);
 
       if is_renderable {
-        let ptr = MutPtr::from(entity.clone()).into();
+        let ptr = ConstPtr::from(&entity);
         self.drawable_entities.push(ptr);
       }
 
       if is_mutable {
-        let ptr = MutPtr::from(entity);
+        let ptr = MutPtr::from(&mut entity);
         self.mutable_entities.push(ptr);
       } else {
-        let ptr = MutPtr::from(entity).into();
+        let ptr = ConstPtr::from(&entity);
         self.static_entities.push(ptr);
       }
-    } else {
-      self.logger.warn(format!("unable to load entity '{}'", id));
-    }
-  }
 
-  pub fn spawn_named_entity(&mut self, id: &str, name: String) {
-    let entity =
+      self.spawned_entities.insert(entity.id.clone(), entity);
+    } else {
       self
-        .entities
-        .construct(id, self.scripts, self.shaders, self.models, self.textures);
-    if let Ok(entity) = entity {
-      let is_static = entity.lua.is_some();
-
-      let entity = Rc::new(RefCell::new(entity));
-
-      self.named_entities.insert(name, entity.clone());
-
-      if is_static {
-        let ptr = MutPtr::from(entity).into();
-        self.static_entities.push(ptr);
-      } else {
-        let ptr = MutPtr::from(entity);
-        self.mutable_entities.push(ptr);
-      }
-    } else {
-      self.logger.warn(format!(
-        "unable to load entity '{}' with name '{}'",
-        id, name
-      ));
+        .logger
+        .warn(format!("unable to load entity '{}'", item_id));
     }
   }
 }

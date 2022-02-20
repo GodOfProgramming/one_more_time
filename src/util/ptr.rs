@@ -1,6 +1,7 @@
 use std::{
   cell::RefCell,
   ops::{Deref, DerefMut},
+  ptr,
   rc::Rc,
 };
 
@@ -9,6 +10,12 @@ pub mod prelude {
 }
 
 pub struct ConstPtr<T: Sized>(*const T);
+
+impl<T> Default for ConstPtr<T> {
+  fn default() -> Self {
+    Self(ptr::null())
+  }
+}
 
 impl<T: Sized> ConstPtr<T> {
   pub fn raw(&self) -> *const T {
@@ -43,7 +50,19 @@ impl<T> From<Rc<T>> for ConstPtr<T> {
   }
 }
 
+impl<T> From<&Box<T>> for ConstPtr<T> {
+  fn from(ptr: &Box<T>) -> Self {
+    Self(ptr.as_ref())
+  }
+}
+
 pub struct MutPtr<T: Sized>(*mut T);
+
+impl<T> Default for MutPtr<T> {
+  fn default() -> Self {
+    Self(ptr::null_mut())
+  }
+}
 
 impl<T: Sized> Clone for MutPtr<T> {
   fn clone(&self) -> Self {
@@ -69,6 +88,12 @@ impl<T> Deref for MutPtr<T> {
 impl<T> DerefMut for MutPtr<T> {
   fn deref_mut(&mut self) -> &mut Self::Target {
     unsafe { &mut *self.0 }
+  }
+}
+
+impl<T> From<&mut Box<T>> for MutPtr<T> {
+  fn from(ptr: &mut Box<T>) -> Self {
+    Self(ptr.as_mut())
   }
 }
 

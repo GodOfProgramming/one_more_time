@@ -18,6 +18,7 @@ static SETTINGS_FILE: &str = "settings.toml";
 const LOG_LIMIT: usize = 5;
 
 fn main() {
+  let x: mlua::Lua;
   puffin::set_scopes_on(cfg!(debug_assertions));
 
   let logger = MainLogger::new(LOG_LIMIT);

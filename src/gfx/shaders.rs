@@ -1,4 +1,4 @@
-use crate::util::{DirID, Dirs, Logger, RecursiveDirIteratorWithID};
+use crate::util::prelude::*;
 use imgui_glium_renderer::glium::{
   backend::Context,
   program::{Program, ProgramCreationError},
@@ -230,3 +230,5 @@ impl ShaderRepository {
     ret
   }
 }
+
+impl AsPtr for ShaderRepository {}

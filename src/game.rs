@@ -143,14 +143,14 @@ impl App {
     let mut map = Map::new(
       map_data,
       self.logger.spawn(),
-      &entity_repository,
-      &scripts,
-      &shader_repository,
-      &model_repository,
-      &texture_repository,
+      entity_repository.as_ptr(),
+      scripts.as_ptr(),
+      shader_repository.as_ptr(),
+      model_repository.as_ptr(),
+      texture_repository.as_ptr(),
     );
 
-    map.spawn_entity("characters.test.square");
+    map.spawn("characters.test.square");
 
     let mut camera = Camera::default();
 
