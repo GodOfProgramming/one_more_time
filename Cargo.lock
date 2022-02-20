@@ -40,32 +40,11 @@ checksum = "7a99269dff3bc004caa411f38845c20303f1e393ca2bd6581576fa3a7f59577d"
 
 [[package]]
 name = "approx"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f2a05fd1bd10b2527e20a2cd32d8873d115b8b39fe219ee25f42a8aca6ba278"
-dependencies = [
- "num-traits",
-]
-
-[[package]]
-name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cab112f0a86d568ea0e627cc1d6be74a1e9cd55214684db5561995f6dad897c6"
 dependencies = [
  "num-traits",
-]
-
-[[package]]
-name = "as-slice"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45403b49e3954a4b8428a0ac21a4b7afadccf92bfd96273f1a58cd4812496ae0"
-dependencies = [
- "generic-array 0.12.4",
- "generic-array 0.13.3",
- "generic-array 0.14.5",
- "stable_deref_trait",
 ]
 
 [[package]]
@@ -255,6 +234,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "downcast-rs"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
+
+[[package]]
 name = "dyn-clone"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -296,6 +281,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fixedbitset"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "37ab347416e802de484e4d03c7316c48f1ecb56574dfd4a46a80f173ce1de04d"
+
+[[package]]
 name = "float-cmp"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -320,7 +311,6 @@ dependencies = [
  "dyn-clone",
  "enum-map",
  "fern",
- "geo",
  "glfw",
  "image",
  "imgui-glium-renderer",
@@ -329,6 +319,7 @@ dependencies = [
  "maplit",
  "mlua",
  "nalgebra-glm",
+ "ncollide2d",
  "profiling",
  "puffin",
  "puffin-imgui",
@@ -339,68 +330,6 @@ dependencies = [
  "toml",
  "walkdir",
  "xml-rs",
-]
-
-[[package]]
-name = "generic-array"
-version = "0.12.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffdf9f34f1447443d37393cc6c2b8313aebddcd96906caf34e54c68d8e57d7bd"
-dependencies = [
- "typenum",
-]
-
-[[package]]
-name = "generic-array"
-version = "0.13.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f797e67af32588215eaaab8327027ee8e71b9dd0b2b26996aedf20c030fce309"
-dependencies = [
- "typenum",
-]
-
-[[package]]
-name = "generic-array"
-version = "0.14.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd48d33ec7f05fbfa152300fdad764757cbded343c1aa1cff2fbaf4134851803"
-dependencies = [
- "typenum",
- "version_check",
-]
-
-[[package]]
-name = "geo"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02bf7fb342abefefb0abbb8d033f37233e6f857a1a970805d15f96560834d699"
-dependencies = [
- "geo-types",
- "geographiclib-rs",
- "log",
- "num-traits",
- "robust",
- "rstar",
-]
-
-[[package]]
-name = "geo-types"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8bd2e95dd9f5c8ff74159ed9205ad7fd239a9569173a550863976421b45d2bb"
-dependencies = [
- "approx 0.4.0",
- "num-traits",
- "rstar",
-]
-
-[[package]]
-name = "geographiclib-rs"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b78e20d5d868fa2c4182a8170cb4df261e781a605810e3c1500269c1907da461"
-dependencies = [
- "lazy_static",
 ]
 
 [[package]]
@@ -468,25 +397,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "hash32"
-version = "0.1.1"
+name = "hashbrown"
+version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4041af86e63ac4298ce40e5cca669066e75b6f1aa3390fe2561ffa5e1d9f4cc"
-dependencies = [
- "byteorder",
-]
-
-[[package]]
-name = "heapless"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "634bd4d29cbf24424d0a4bfcbf80c6960129dc24424752a7d1d1390607023422"
-dependencies = [
- "as-slice",
- "generic-array 0.14.5",
- "hash32",
- "stable_deref_trait",
-]
+checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
 
 [[package]]
 name = "heck"
@@ -554,6 +468,16 @@ checksum = "286f5338bd8281e3203de29cc317d123b178f2e565eca5aee770a2048074fdf7"
 dependencies = [
  "cc",
  "chlorine",
+]
+
+[[package]]
+name = "indexmap"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "282a6247722caba404c065016bbfa522806e51714c34f5dfc3e4a3a46fcb4223"
+dependencies = [
+ "autocfg",
+ "hashbrown",
 ]
 
 [[package]]
@@ -719,16 +643,32 @@ dependencies = [
 
 [[package]]
 name = "nalgebra"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d506eb7e08d6329505faa8a3a00a5dcc6de9f76e0c77e4b75763ae3c770831ff"
+dependencies = [
+ "approx",
+ "matrixmultiply",
+ "nalgebra-macros",
+ "num-complex",
+ "num-rational 0.4.0",
+ "num-traits",
+ "simba 0.6.0",
+ "typenum",
+]
+
+[[package]]
+name = "nalgebra"
 version = "0.30.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fb2d0de08694bed883320212c18ee3008576bfe8c306f4c3c4a58b4876998be"
 dependencies = [
- "approx 0.5.1",
+ "approx",
  "matrixmultiply",
  "num-complex",
  "num-rational 0.4.0",
  "num-traits",
- "simba",
+ "simba 0.7.1",
  "typenum",
 ]
 
@@ -738,10 +678,21 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de5ec1e116731f6a4e86ee76162ea1e33a30d793820942b08849aa7e4fed0d91"
 dependencies = [
- "approx 0.5.1",
- "nalgebra",
+ "approx",
+ "nalgebra 0.30.1",
  "num-traits",
- "simba",
+ "simba 0.7.1",
+]
+
+[[package]]
+name = "nalgebra-macros"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01fcc0b8149b4632adc89ac3b7b31a12fb6099a0317a4eb2ebff574ef7de7218"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -749,6 +700,25 @@ name = "natord"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "308d96db8debc727c3fd9744aac51751243420e46edf401010908da7f8d5e57c"
+
+[[package]]
+name = "ncollide2d"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f272981acd57d7bfb6f7c6cd5c00f4c8c9168daa4958f04f2ba7fef1b6337df"
+dependencies = [
+ "approx",
+ "bitflags",
+ "downcast-rs",
+ "either",
+ "nalgebra 0.29.0",
+ "num-traits",
+ "petgraph",
+ "simba 0.6.0",
+ "slab",
+ "slotmap",
+ "smallvec",
+]
 
 [[package]]
 name = "num"
@@ -911,10 +881,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0744126afe1a6dd7f394cb50a716dbe086cb06e255e53d8d0185d82828358fb5"
 
 [[package]]
-name = "pdqselect"
-version = "0.1.0"
+name = "petgraph"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ec91767ecc0a0bbe558ce8c9da33c068066c57ecc8bb8477ef8c1ad3ef77c27"
+checksum = "467d164a6de56270bd7c4d070df81d07beace25012d5103ced4e9ff08d6afdb7"
+dependencies = [
+ "fixedbitset",
+ "indexmap",
+]
 
 [[package]]
 name = "pkg-config"
@@ -1066,24 +1040,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f497285884f3fcff424ffc933e56d7cbca511def0c9831a7f9b5f6153e3cc89b"
 
 [[package]]
-name = "robust"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5864e7ef1a6b7bcf1d6ca3f655e65e724ed3b52546a0d0a663c991522f552ea"
-
-[[package]]
-name = "rstar"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a45c0e8804d37e4d97e55c6f258bc9ad9c5ee7b07437009dd152d764949a27c"
-dependencies = [
- "heapless",
- "num-traits",
- "pdqselect",
- "smallvec",
-]
-
-[[package]]
 name = "rustc-demangle"
 version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1166,11 +1122,11 @@ dependencies = [
 
 [[package]]
 name = "simba"
-version = "0.7.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13a2609e876d4f77f6ab7ff5254fc39b4f1927ba8e6db3d18be7c32534d3725e"
+checksum = "f0b7840f121a46d63066ee7a99fc81dcabbc6105e437cae43528cea199b5a05f"
 dependencies = [
- "approx 0.5.1",
+ "approx",
  "num-complex",
  "num-traits",
  "paste",
@@ -1178,16 +1134,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "simba"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13a2609e876d4f77f6ab7ff5254fc39b4f1927ba8e6db3d18be7c32534d3725e"
+dependencies = [
+ "approx",
+ "num-complex",
+ "num-traits",
+ "paste",
+ "wide",
+]
+
+[[package]]
+name = "slab"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9def91fd1e018fe007022791f865d0ccc9b3a0d5001e01aabb8b40e46000afb5"
+
+[[package]]
+name = "slotmap"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1e08e261d0e8f5c43123b7adf3e4ca1690d655377ac93a03b2c9d3e98de1342"
+dependencies = [
+ "version_check",
+]
+
+[[package]]
 name = "smallvec"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2dd574626839106c320a323308629dcb1acfc96e32a8cba364ddc61ac23ee83"
-
-[[package]]
-name = "stable_deref_trait"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "static_assertions"

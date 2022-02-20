@@ -180,10 +180,13 @@ pub struct Entity {
   model: Option<Rc<Model>>,
   texture: Option<Rc<SrgbTexture2d>>,
   data: Option<mlua::Value<'static>>,
+
+  test: f32,
 }
 
 impl Entity {
   pub fn update<L: Logger>(&mut self, logger: &L) {
+    self.test += 1.0;
     if let Some(lua) = &self.lua {
       if let Some(class) = &self.class {
         let globals = lua.globals();
@@ -208,10 +211,17 @@ impl Entity {
         if let Some(texture) = &self.texture {
           use crate::math::glm;
           let transform = glm::Mat4::identity();
-          let transform = transform.scale(0.5);
+          let transform = glm::scale(&transform, &glm::vec3(5.0, 5.0, 1.0));
+          let transform = glm::rotate(
+            &transform,
+            self.test.to_radians(),
+            &glm::vec3(0.0, 0.0, 1.0),
+          );
           let transform: [[f32; 4]; 4] = transform.into();
-          let view: [[f32; 4]; 4] = glm::Mat4::identity().into(); // camera.view();
-          let proj: [[f32; 4]; 4] = glm::Mat4::identity().into(); // camera.projection();
+          // let view: [[f32; 4]; 4] = glm::Mat4::identity().into();
+          // let proj: [[f32; 4]; 4] = glm::Mat4::identity().into();
+          let view = camera.view();
+          let proj = camera.projection();
 
           let uniforms = uniform! {
             model: transform,
@@ -219,6 +229,9 @@ impl Entity {
             projection: proj,
             tex: &**texture,
           };
+
+          let uniforms = uniforms.add::<f32>("c", 1.0);
+
           surface
             .draw(
               &model.vbuff,

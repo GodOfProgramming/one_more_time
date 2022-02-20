@@ -14,7 +14,7 @@ image = "0.23.14"
 # steamworks = "0.8.0"
 
 nalgebra-glm = "0.16.0"
-geo = "0.18.0"
+ncollide2d = "0.32.0"
 
 toml = "0.5.8"
 xml-rs = "0.8.4"
