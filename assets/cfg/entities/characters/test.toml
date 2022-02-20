@@ -1,7 +1,6 @@
 [square]
 script = "test.entity"
-on_init = "init_square"
-on_update = "update_square"
+class = "Square"
 model = "sprite"
 texture = "grass"
 shader = "test.basic"

@@ -1,100 +1,32 @@
 use crate::{
   gfx::*,
-  math::glm,
   scripting::prelude::*,
   util::{ChildLogger, DirID, Logger},
 };
-use imgui_glium_renderer::glium::{
-  backend::Facade,
-  index::{IndexBuffer, PrimitiveType},
-  texture::{RawImage2d, SrgbTexture2d},
-  uniform,
-  vertex::VertexBuffer,
-  Surface,
-};
+use imgui_glium_renderer::glium::{texture::SrgbTexture2d, uniform, Surface};
 use mlua::Table;
 use std::{cell::RefCell, collections::BTreeMap, fs, path::PathBuf, rc::Rc};
 use toml::Value;
 
 mod keys {
   pub const SCRIPT: &str = "script";
-  pub const ON_UPDATE: &str = "on_update";
+  pub const CLASS: &str = "class";
   pub const SHADER: &str = "shader";
   pub const MODEL: &str = "model";
   pub const TEXTURE: &str = "texture";
 }
 
-pub struct Model {
-  vertices: Vertices,
-  indices: Indices,
-  primitive: PrimitiveType,
-  vbuff: VertexBuffer<Vertex>,
-  ibuff: IndexBuffer<u32>,
-}
-
-impl Model {
-  pub fn new<F: Facade>(
-    facade: &F,
-    vertices: Vertices,
-    indices: Indices,
-    primitive: PrimitiveType,
-  ) -> Result<Model, String> {
-    let vbuff = VertexBuffer::new(facade, &vertices).map_err(|err| err.to_string())?;
-    let ibuff = IndexBuffer::new(facade, primitive, &indices).map_err(|err| err.to_string())?;
-    Ok(Self {
-      vertices,
-      indices,
-      primitive,
-      vbuff,
-      ibuff,
-    })
-  }
-}
-
-pub struct ModelRepository {
-  models: BTreeMap<String, Rc<Model>>,
-}
-
-impl ModelRepository {
-  pub fn new<F: Facade>(facade: &F) -> Self {
-    let mut repo = Self {
-      models: Default::default(),
-    };
-
-    let sprite = Sprite::new();
-    repo.models.insert(
-      "sprite".to_string(),
-      Rc::new(
-        Model::new(
-          facade,
-          sprite.vertices,
-          sprite.indices,
-          PrimitiveType::TrianglesList,
-        )
-        .unwrap(),
-      ),
-    );
-
-    repo
-  }
-
-  pub fn get(&self, id: &str) -> Option<Rc<Model>> {
-    self.models.get(id).cloned()
-  }
-}
-
-#[derive(Default)]
 pub struct EntityRepository {
   templates: BTreeMap<String, Rc<EntityTemplate>>,
+  logger: ChildLogger,
 }
 
 impl EntityRepository {
-  pub fn new<L, I>(logger: &L, iter: I) -> Self
+  pub fn new<I>(logger: ChildLogger, iter: I) -> Self
   where
-    L: Logger,
     I: Iterator<Item = (PathBuf, DirID)>,
   {
-    let mut repo = Self::default();
+    let mut templates = BTreeMap::default();
 
     for (path, id) in iter {
       match fs::read_to_string(&path) {
@@ -110,7 +42,7 @@ impl EntityRepository {
                   None
                 };
 
-                let on_update = if let Some(Value::String(on_update)) = v.get(keys::ON_UPDATE) {
+                let class = if let Some(Value::String(on_update)) = v.get(keys::CLASS) {
                   Some(on_update.clone())
                 } else {
                   None
@@ -136,13 +68,13 @@ impl EntityRepository {
 
                 let tmpl = EntityTemplate {
                   script,
-                  on_update,
+                  class,
                   shader,
                   model,
                   texture,
                 };
 
-                repo.templates.insert(id.into(), Rc::new(tmpl));
+                templates.insert(id.into(), Rc::new(tmpl));
               }
             } else {
               logger.error(format!("entity file is not a table '{:?}'", path));
@@ -154,7 +86,7 @@ impl EntityRepository {
       }
     }
 
-    repo
+    Self { templates, logger }
   }
 
   pub fn construct(
@@ -171,10 +103,37 @@ impl EntityRepository {
       if let Some(script) = &tmpl.script {
         if let Some(lua) = scripts.get(script) {
           entity.lua = Some(lua);
-          if let Some(on_update) = &tmpl.on_update {
-            entity.on_update = on_update.clone();
-            if let Ok(table) = lua.create_table() {
-              entity.data = Some(table);
+          if let Some(class_name) = &tmpl.class {
+            let globals = lua.globals();
+            if let Ok(mlua::Value::Table(class)) = globals.get(class_name.as_str()) {
+              entity.class = Some(class_name.clone());
+
+              let data = match class.get("new") {
+                Ok(mlua::Value::Function(new)) => {
+                  let res: Result<Table, mlua::Error> = new.call(class);
+
+                  match res {
+                    Ok(data) => data,
+                    Err(e) => {
+                      self.logger.error(e.to_string());
+                      lua.create_table().unwrap()
+                    }
+                  }
+                }
+                Ok(mlua::Value::Nil) => lua.create_table().unwrap(),
+                Ok(_) => {
+                  self
+                    .logger
+                    .error("invalid type for initalizer function".to_string());
+                  lua.create_table().unwrap()
+                }
+                Err(e) => {
+                  self.logger.error(e.to_string());
+                  lua.create_table().unwrap()
+                }
+              };
+
+              entity.data = Some(mlua::Value::Table(data));
             }
           }
         }
@@ -206,7 +165,7 @@ impl EntityRepository {
 #[derive(Default)]
 pub struct EntityTemplate {
   script: Option<String>,
-  on_update: Option<String>,
+  class: Option<String>,
   shader: Option<String>,
   model: Option<String>,
   texture: Option<String>,
@@ -215,20 +174,29 @@ pub struct EntityTemplate {
 #[derive(Default)]
 pub struct Entity {
   lua: Option<&'static Lua>,
-  on_update: String,
+  class: Option<String>,
   shader: Option<Rc<Shader>>,
   model: Option<Rc<Model>>,
   texture: Option<Rc<SrgbTexture2d>>,
-  data: Option<Table<'static>>,
+  data: Option<mlua::Value<'static>>,
 }
 
 impl Entity {
   pub fn update<L: Logger>(&mut self, logger: &L) {
-    let ptr = self.as_ptr_mut();
     if let Some(lua) = &self.lua {
-      let res: Result<(), mlua::Error> = lua.globals().call_function(self.on_update.as_str(), ptr);
-      if let Err(e) = res {
-        logger.error(e.to_string());
+      if let Some(class) = &self.class {
+        let globals = lua.globals();
+
+        if let Ok(mlua::Value::Table(class)) = globals.get(class.as_str()) {
+          if let Ok(mlua::Value::Function(on_update)) = class.get("update") {
+            if let Some(data) = &self.data {
+              let res: Result<(), mlua::Error> = on_update.call(data.clone());
+              if let Err(e) = res {
+                logger.error(e.to_string());
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -334,7 +302,7 @@ impl<'r> Map<'r> {
         .entities
         .construct(id, self.scripts, self.shaders, self.models, self.textures);
     if let Ok(entity) = entity {
-      let is_mutable = entity.lua.is_some() && !entity.on_update.is_empty();
+      let is_mutable = entity.lua.is_some() && entity.class.is_some();
       let is_renderable = entity.model.is_some() && entity.texture.is_some();
 
       let entity = Rc::new(RefCell::new(entity));

@@ -23,13 +23,11 @@ use imgui_glium_renderer::glium::{
 };
 use imgui_glium_renderer::imgui;
 use mlua::{UserData, UserDataMethods, Value};
-use world::{EntityRepository, Map, MapData, ModelRepository};
+use world::{EntityRepository, Map, MapData};
 
 #[derive(PartialEq)]
 enum State {
   Starting,
-  InGame,
-  Paused,
   Exiting,
 }
 
@@ -104,7 +102,7 @@ impl App {
 
     // game
     let entity_repository = EntityRepository::new(
-      &self.logger,
+      self.logger.spawn(),
       RecursiveDirIteratorWithID::from(&dirs.assets.cfg.entities),
     );
 
@@ -114,7 +112,8 @@ impl App {
     {
       let dirs_ptr = dirs.as_ptr();
       script_loader.register_init_fn(Box::new(move |lua: &Lua| {
-        let package: mlua::Table = lua.globals().get("package").unwrap();
+        let globals = lua.globals();
+        let package: mlua::Table = globals.get("package").unwrap();
         let path: String = package.get("path").unwrap();
         let path = format!(
           "{}/?.lua;{}",

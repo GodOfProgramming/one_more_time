@@ -1,7 +1,6 @@
 use crate::{
   input::InputDevices,
-  scripting::prelude::*,
-  util::{Dirs, MainLogger, RecursiveDirIteratorWithID, Settings, SpawnableLogger},
+  util::{Dirs, MainLogger, Settings},
 };
 use game::App;
 use std::{env, path::Path};
