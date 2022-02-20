@@ -2,7 +2,10 @@ use crate::util::ptr::prelude::*;
 use std::{
   ffi::{OsStr, OsString},
   fmt::Display,
+  ops::Deref,
   path::PathBuf,
+  str::FromStr,
+  string::ToString,
 };
 
 #[derive(Debug, Clone)]
@@ -86,6 +89,13 @@ impl DirID {
   }
 }
 
+impl Deref for DirID {
+  type Target = str;
+  fn deref(&self) -> &Self::Target {
+    self.id.to_str().unwrap_or_default()
+  }
+}
+
 impl Display for DirID {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
     write!(f, "{:?}", self.id)
@@ -131,6 +141,6 @@ impl From<String> for DirID {
 
 impl Into<String> for DirID {
   fn into(self) -> String {
-    String::from(self.id.to_string_lossy())
+    String::from(self.id.to_str().unwrap_or_default())
   }
 }

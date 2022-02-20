@@ -32,8 +32,6 @@ fn main() {
 
   let mut input_devices = InputDevices::default();
 
-  // set up some top level lua functions
-
   app.run(&mut settings, &dirs, &mut input_devices);
 
   settings.save(settings_file).unwrap();

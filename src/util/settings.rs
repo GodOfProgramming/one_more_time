@@ -1,10 +1,11 @@
-pub mod display;
-pub mod game;
-pub mod graphics;
-
 use common::*;
 use std::{fs, path::Path};
 use toml::{value::Table, Value};
+
+pub mod display;
+pub mod game;
+pub mod graphics;
+pub mod scripts;
 
 mod common {
   pub use crate::scripting::prelude::*;
@@ -17,6 +18,7 @@ mod keys {
   pub const DISPLAY: &str = "display";
   pub const GRAPHICS: &str = "graphics";
   pub const GAME: &str = "game";
+  pub const SCRIPTS: &str = "scripts";
 }
 
 #[derive(Default, Debug)]
@@ -24,6 +26,7 @@ pub struct Settings {
   pub display: display::Settings,
   pub graphics: graphics::Settings,
   pub game: game::Settings,
+  pub scripts: scripts::Settings,
 }
 
 impl Settings {
@@ -33,16 +36,20 @@ impl Settings {
         Ok(root) => {
           let mut settings = Settings::default();
 
-          if let Some(Value::Table(display)) = root.get("display") {
+          if let Some(Value::Table(display)) = root.get(keys::DISPLAY) {
             settings.display = display::Settings::from(display);
           }
 
-          if let Some(Value::Table(graphics)) = root.get("graphics") {
+          if let Some(Value::Table(graphics)) = root.get(keys::GRAPHICS) {
             settings.graphics = graphics::Settings::from(graphics);
           }
 
-          if let Some(Value::Table(game)) = root.get("game") {
+          if let Some(Value::Table(game)) = root.get(keys::GAME) {
             settings.game = game::Settings::from(game);
+          }
+
+          if let Some(Value::Table(scripts)) = root.get(keys::SCRIPTS) {
+            settings.scripts = scripts::Settings::from(scripts);
           }
 
           Ok(settings)
@@ -67,6 +74,11 @@ impl Settings {
     );
 
     root.insert(String::from(keys::GAME), Value::Table(self.game.into()));
+
+    root.insert(
+      String::from(keys::SCRIPTS),
+      Value::Table(self.scripts.into()),
+    );
 
     match toml::to_string_pretty(&root) {
       Ok(data) => {

@@ -1,6 +1,4 @@
-use crate::scripting::prelude::*;
-use mlua::{UserData, UserDataMethods};
-use toml::{value::Table, Value};
+use super::common::*;
 
 mod keys {
   pub const FPS: &str = "fps";

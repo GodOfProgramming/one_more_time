@@ -6,7 +6,6 @@ use crate::{
     keyboard::{Key, KeyAction},
     InputCheck, InputDevices,
   },
-  math::lua::*,
   scripting::prelude::*,
   ui::UiManager,
   util::{
@@ -83,6 +82,7 @@ impl App {
 
     let mut script_loader = ScriptLoader::new(
       &self.logger,
+      settings,
       RecursiveDirIteratorWithID::from(&dirs.assets.scripts),
     );
 
@@ -123,7 +123,6 @@ impl App {
         );
         package.set("path", path).unwrap();
       }));
-      script_loader.register_init_fn(Box::new(&LuaVecT::callback));
     }
 
     let scripts = script_loader.load_scripts(&self.logger);

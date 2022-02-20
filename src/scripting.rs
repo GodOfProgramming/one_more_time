@@ -1,4 +1,4 @@
-use crate::util::{DirID, Logger};
+use crate::util::{DirID, Logger, Settings};
 use prelude::*;
 use std::{collections::BTreeMap, fs, mem, path::PathBuf};
 
@@ -16,7 +16,7 @@ pub struct ScriptLoader {
 }
 
 impl ScriptLoader {
-  pub fn new<L, I>(logger: &L, iter: I) -> Self
+  pub fn new<L, I>(logger: &L, settings: &Settings, iter: I) -> Self
   where
     L: Logger,
     I: Iterator<Item = (PathBuf, DirID)>,
@@ -28,6 +28,14 @@ impl ScriptLoader {
     };
 
     for (path, id) in iter {
+      if settings
+        .scripts
+        .exclude
+        .iter()
+        .any(|reg: &regex::Regex| reg.is_match(&id))
+      {
+        continue;
+      }
       logger.info(format!("loading {:?} as id {:?}", path, id));
       if let Ok(src) = fs::read_to_string(&path) {
         let lua = Lua::new().into_static();
