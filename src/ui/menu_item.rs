@@ -53,7 +53,7 @@ impl UiElement for MenuItem {
   }
 
   fn dupe(&self) -> UiElementPtr {
-    Rc::new(RefCell::new(self.clone()))
+    Box::new(self.clone())
   }
 }
 
@@ -69,6 +69,6 @@ impl UiElementParent for MenuItem {
 
 impl From<MenuItem> for Ui {
   fn from(ui: MenuItem) -> Self {
-    Ui(Rc::new(RefCell::new(ui)))
+    Ui(Box::new(ui))
   }
 }

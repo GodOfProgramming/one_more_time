@@ -1,7 +1,12 @@
 use super::Camera;
 use crate::{gfx::*, util::prelude::*};
 use imgui_glium_renderer::glium::{texture::SrgbTexture2d, uniform, Surface};
-use std::{collections::BTreeMap, fs, path::PathBuf, rc::Rc};
+use std::{
+  collections::{BTreeMap, BTreeSet},
+  fs,
+  path::PathBuf,
+  rc::Rc,
+};
 use toml::Value;
 use uid::Id;
 
@@ -13,6 +18,11 @@ mod keys {
 }
 
 type EntityId = Id<()>;
+
+#[derive(Clone)]
+pub struct LuaEntityId(EntityId);
+
+impl UserData for LuaEntityId {}
 
 pub struct EntityRepository {
   templates: BTreeMap<String, Rc<EntityTemplate>>,
@@ -82,6 +92,7 @@ impl EntityRepository {
 
   pub fn construct(
     &self,
+    map: MutPtr<Map>,
     item_id: &str,
     lua: &'static Lua,
     shaders: &ShaderRepository,
@@ -90,7 +101,7 @@ impl EntityRepository {
   ) -> Result<Entity, String> {
     if let Some(tmpl) = self.templates.get(item_id) {
       let id = Id::new();
-      let mut entity = Entity::new(id);
+      let mut entity = Entity::new(id, map);
 
       if let Some(class_name) = &tmpl.class {
         match script::resolve(lua, class_name) {
@@ -146,6 +157,7 @@ pub struct EntityTemplate {
 #[derive(Default)]
 pub struct Entity {
   id: EntityId,
+  map: MutPtr<Map>,
 
   class: Option<LuaTable<'static>>,
   instance: Option<LuaValue<'static>>,
@@ -156,9 +168,10 @@ pub struct Entity {
 }
 
 impl Entity {
-  fn new(id: EntityId) -> Self {
+  fn new(id: EntityId, map: MutPtr<Map>) -> Self {
     Self {
       id,
+      map,
       ..Default::default()
     }
   }
@@ -212,12 +225,26 @@ impl Entity {
     }
   }
 
-  fn dispose(&self) {}
+  fn dispose(&mut self) {
+    self.map.dispose_of(self.id);
+  }
+
+  fn is_mutable(&self) -> bool {
+    self.class.is_some() && self.instance.is_some()
+  }
+
+  fn is_renderable(&self) -> bool {
+    self.model.is_some() && self.texture.is_some()
+  }
 }
 
 impl AsPtr for Entity {}
 
 impl UserData for MutPtr<Entity> {
+  fn add_fields<'lua, F: UserDataFields<'lua, Self>>(fields: &mut F) {
+    fields.add_field_method_get("id", |_, this| Ok(LuaEntityId(this.id)));
+  }
+
   fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
     methods.add_method_mut("dispose", |_, this, _: ()| {
       this.dispose();
@@ -238,10 +265,17 @@ pub struct MapData {
 pub struct Map {
   data: MapData,
   tiles: Vec<Tile>,
+
   spawned_entities: BTreeMap<EntityId, Box<Entity>>,
+
   static_entities: Vec<ConstPtr<Entity>>,
+  available_static_entities_positions: BTreeSet<usize>,
+
   mutable_entities: Vec<MutPtr<Entity>>,
+  available_mutable_entities_positions: BTreeSet<usize>,
+
   drawable_entities: Vec<ConstPtr<Entity>>,
+  available_drawable_entities_positions: BTreeSet<usize>,
 
   logger: ChildLogger,
 
@@ -267,10 +301,17 @@ impl Map {
     Self {
       data,
       tiles,
+
       spawned_entities: Default::default(),
+
       static_entities: Default::default(),
+      available_static_entities_positions: Default::default(),
+
       mutable_entities: Default::default(),
+      available_mutable_entities_positions: Default::default(),
+
       drawable_entities: Default::default(),
+      available_drawable_entities_positions: Default::default(),
 
       logger,
 
@@ -296,26 +337,25 @@ impl Map {
   }
 
   pub fn spawn(&mut self, item_id: &str) {
+    let map_ptr = self.as_ptr_mut();
     let entity = self.entities.construct(
+      map_ptr,
       item_id,
-      &self.lua,
+      self.lua,
       &self.shaders,
       &self.models,
       &self.textures,
     );
 
     if let Ok(entity) = entity {
-      let is_mutable = entity.class.is_some() && entity.instance.is_some();
-      let is_renderable = entity.model.is_some() && entity.texture.is_some();
-
       let mut entity = Box::new(entity);
 
-      if is_renderable {
+      if entity.is_renderable() {
         let ptr = ConstPtr::from(&entity);
         self.drawable_entities.push(ptr);
       }
 
-      if is_mutable {
+      if entity.is_mutable() {
         let ptr = MutPtr::from(&mut entity);
         self.mutable_entities.push(ptr);
       } else {
@@ -323,11 +363,53 @@ impl Map {
         self.static_entities.push(ptr);
       }
 
-      self.spawned_entities.insert(entity.id.clone(), entity);
+      self.spawned_entities.insert(entity.id, entity);
     } else {
       self
         .logger
         .warn(format!("unable to load entity '{}'", item_id));
     }
+  }
+
+  pub fn dispose_of(&mut self, id: EntityId) {
+    if let Some(entity) = self.spawned_entities.get(&id) {
+      if entity.is_renderable() {
+        if let Some(idx) = self.drawable_entities.iter().position(|e| e.id == id) {
+          self.drawable_entities.swap_remove(idx);
+        }
+      }
+
+      if entity.is_mutable() {
+        if let Some(idx) = self.mutable_entities.iter().position(|e| e.id == id) {
+          self.mutable_entities.swap_remove(idx);
+        }
+      } else if let Some(idx) = self.static_entities.iter().position(|e| e.id == id) {
+        self.static_entities.swap_remove(idx);
+      }
+
+      self.spawned_entities.remove(&id);
+    }
+  }
+
+  pub fn register_to_lua(&mut self, lua: &Lua) {
+    let globals = lua.globals();
+    globals.set("Map", self.as_ptr_mut()).unwrap();
+  }
+
+  fn lookup_entity(&mut self, id: &EntityId) -> Option<MutPtr<Entity>> {
+    self
+      .spawned_entities
+      .get_mut(id)
+      .map(|entity| entity.as_ptr_mut())
+  }
+}
+
+impl AsPtr for Map {}
+
+impl UserData for MutPtr<Map> {
+  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
+    methods.add_method_mut("lookup_entity", |_, this, id: LuaEntityId| {
+      Ok(this.lookup_entity(&id.0))
+    });
   }
 }

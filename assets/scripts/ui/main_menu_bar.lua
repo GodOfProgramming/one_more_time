@@ -1,5 +1,6 @@
 require "lib.class";
 require 'lib.ui';
+local inspect = require 'lib.inspect'
 
 local MainMenuBar = class([[MainMenuBar]], { module = ui });
 
@@ -48,6 +49,11 @@ function MainMenuBar:rename_window()
 end
 
 function MainMenuBar:test()
+    local entity = Map:lookup_entity(self.char_id);
+    entity:dispose();
+end
+
+function MainMenuBar:test_class()
     local m = {}
     local Parent = class([[Parent]], {
       module = m,

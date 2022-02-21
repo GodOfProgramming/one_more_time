@@ -93,7 +93,7 @@ impl UiElement for Window {
   }
 
   fn dupe(&self) -> UiElementPtr {
-    Rc::new(RefCell::new(self.clone()))
+    Box::new(self.clone())
   }
 }
 
@@ -111,6 +111,6 @@ impl UiElementParent for Window {
 
 impl From<Window> for Ui {
   fn from(ui: Window) -> Self {
-    Ui(Rc::new(RefCell::new(ui)))
+    Ui(Box::new(ui))
   }
 }

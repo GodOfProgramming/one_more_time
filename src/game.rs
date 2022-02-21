@@ -115,6 +115,8 @@ impl App {
       texture_repository.as_ptr(),
     );
 
+    map.register_to_lua(lua);
+
     self.logger.info("spawning test character".to_string());
     map.spawn("characters.test.square");
 

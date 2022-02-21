@@ -36,7 +36,7 @@ impl UiElement for TextBox {
   }
 
   fn dupe(&self) -> UiElementPtr {
-    Rc::new(RefCell::new(self.clone()))
+    Box::new(self.clone())
   }
 }
 
@@ -52,6 +52,6 @@ impl UiElementParent for TextBox {
 
 impl From<TextBox> for Ui {
   fn from(ui: TextBox) -> Self {
-    Ui(Rc::new(RefCell::new(ui)))
+    Ui(Box::new(ui))
   }
 }

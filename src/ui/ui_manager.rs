@@ -1,4 +1,4 @@
-use super::{common::*, UiComponentPtr, UiTemplate};
+use super::{common::*, UiComponent, UiComponentPtr, UiTemplate};
 use crate::util::prelude::*;
 use imgui_glium_renderer::imgui::Ui;
 use mlua::{Lua, UserData, UserDataMethods, Value};
@@ -62,18 +62,19 @@ impl UiManager {
     }
   }
 
-  pub fn open(&mut self, id: &str, name: &str) -> Option<UiComponentPtr> {
+  pub fn open(&mut self, id: &str, name: &str) -> Option<MutPtr<UiComponent>> {
     if let Some(tmpl) = self.templates.get(&DirID::from(id)) {
-      let component = tmpl.create_component(&self.logger);
-      self.open_ui.insert(name.to_string(), component.clone());
-      Some(component)
+      let mut component = tmpl.create_component(&self.logger);
+      let ptr = component.as_ptr_mut();
+      self.open_ui.insert(name.to_string(), component);
+      Some(ptr)
     } else {
       None
     }
   }
 
-  pub fn get(&self, name: &str) -> Option<UiComponentPtr> {
-    self.open_ui.get(name).cloned()
+  pub fn get(&mut self, name: &str) -> Option<MutPtr<UiComponent>> {
+    self.open_ui.get_mut(name).map(|c| c.as_ptr_mut())
   }
 
   pub fn list(&self) -> Vec<String> {
@@ -92,16 +93,16 @@ impl AsPtr for UiManager {}
 impl UserData for MutPtr<UiManager> {
   fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
     methods.add_method_mut("open", |_, this, (id, name): (String, String)| {
-      if let Some(mut ptr) = this.open(&id, &name) {
-        Ok(Some(ptr.component().as_ptr_mut()))
+      if let Some(ptr) = this.open(&id, &name) {
+        Ok(Some(ptr))
       } else {
         Ok(None)
       }
     });
 
-    methods.add_method("get", |_, this, name: String| {
-      if let Some(mut ptr) = this.get(&name) {
-        Ok(Some(ptr.component().as_ptr_mut()))
+    methods.add_method_mut("get", |_, this, name: String| {
+      if let Some(ptr) = this.get(&name) {
+        Ok(Some(ptr))
       } else {
         Ok(None)
       }

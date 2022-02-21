@@ -41,7 +41,7 @@ impl UiElement for MainMenuBar {
   }
 
   fn dupe(&self) -> UiElementPtr {
-    Rc::new(RefCell::new(self.clone()))
+    Box::new(self.clone())
   }
 }
 
@@ -58,6 +58,6 @@ impl UiElementParent for MainMenuBar {
 
 impl From<MainMenuBar> for Ui {
   fn from(ui: MainMenuBar) -> Self {
-    Ui(Rc::new(RefCell::new(ui)))
+    Ui(Box::new(ui))
   }
 }

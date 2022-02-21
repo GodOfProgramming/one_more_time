@@ -4,11 +4,10 @@ use imgui_glium_renderer::imgui;
 use lazy_static::lazy_static;
 use log::warn;
 use maplit::hashmap;
-use mlua::Value;
+use mlua::{Scope, Value};
 use std::{
-  cell::RefCell,
   collections::{BTreeMap, HashMap},
-  rc::Rc,
+  ops::{Deref, DerefMut},
 };
 
 pub use ui_manager::UiManager;
@@ -34,7 +33,7 @@ pub mod common {
   pub use lazy_static::lazy_static;
   pub use maplit::hashmap;
   pub use mlua::{prelude::*, UserData, UserDataFields, UserDataMetatable, UserDataMethods, Value};
-  pub use std::{cell::RefCell, collections::BTreeMap, ffi::CString, rc::Rc};
+  pub use std::{collections::BTreeMap, ffi::CString, rc::Rc};
 }
 
 pub mod types {
@@ -82,7 +81,7 @@ macro_rules! type_map {
 
 pub type SubElementCreator = fn(XmlNode) -> Ui;
 pub type SubElementMap = HashMap<&'static str, SubElementCreator>;
-pub type UiElementPtr = Rc<RefCell<dyn UiElement>>;
+pub type UiElementPtr = Box<dyn UiElement>;
 
 pub trait UiElement: DynClone {
   fn kind(&self) -> String;
@@ -128,11 +127,11 @@ pub struct Ui(UiElementPtr);
 
 impl Ui {
   fn el(&self) -> &dyn UiElement {
-    unsafe { &*self.0.as_ptr() }
+    self.0.as_ref()
   }
 
   fn el_mut(&mut self) -> &mut dyn UiElement {
-    unsafe { &mut *self.0.as_ptr() }
+    self.0.as_mut()
   }
 }
 
@@ -300,11 +299,22 @@ impl UiComponent {
     settings: &Settings,
   ) {
     let ptr = self.as_ptr_mut();
-    let _ = lua.globals().set("document", ptr);
+    let res: mlua::Result<()> = lua.scope(|scope: &mlua::Scope| {
+      let ptr = scope.create_userdata(ptr).unwrap();
+      let globals = lua.globals();
+      let _ = globals.set("document", ptr);
 
-    self
-      .el
-      .update(logger, ui, &self.class, &self.instance, settings);
+      self
+        .el
+        .update(logger, ui, &self.class, &self.instance, settings);
+
+      globals.set("document", LuaValue::Nil).unwrap();
+      Ok(())
+    });
+
+    if let Err(e) = res {
+      logger.error(e.to_string());
+    }
   }
 
   fn get_element_by_id(&mut self, id: &str) -> Option<MutPtr<Ui>> {
@@ -315,6 +325,10 @@ impl UiComponent {
 impl AsPtr for UiComponent {}
 
 impl UserData for MutPtr<UiComponent> {
+  fn add_fields<'lua, F: UserDataFields<'lua, Self>>(fields: &mut F) {
+    fields.add_field_method_get("data", |_, this| Ok(this.instance.clone()));
+  }
+
   fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
     methods.add_method_mut("get_element_by_id", |_, this, id: String| {
       Ok(this.get_element_by_id(&id))
@@ -322,16 +336,28 @@ impl UserData for MutPtr<UiComponent> {
   }
 }
 
-#[derive(Clone)]
-pub struct UiComponentPtr(Rc<RefCell<UiComponent>>);
+pub struct UiComponentPtr(Box<UiComponent>);
 
 impl UiComponentPtr {
   pub fn new(ui: UiComponent) -> Self {
-    Self(Rc::new(RefCell::new(ui)))
+    Self(Box::new(ui))
   }
 
   pub fn component(&mut self) -> &mut UiComponent {
-    unsafe { &mut *self.0.as_ptr() }
+    self.0.as_mut()
+  }
+}
+
+impl Deref for UiComponentPtr {
+  type Target = UiComponent;
+  fn deref(&self) -> &Self::Target {
+    self.0.as_ref()
+  }
+}
+
+impl DerefMut for UiComponentPtr {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    self.0.as_mut()
   }
 }
 
@@ -348,12 +374,12 @@ impl UiElement for EmptyUi {
   }
 
   fn dupe(&self) -> UiElementPtr {
-    Rc::new(RefCell::new(EmptyUi))
+    Box::new(EmptyUi)
   }
 }
 
 impl From<EmptyUi> for Ui {
   fn from(ui: EmptyUi) -> Self {
-    Ui(Rc::new(RefCell::new(ui)))
+    Ui(Box::new(ui))
   }
 }

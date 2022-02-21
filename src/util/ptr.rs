@@ -18,8 +18,16 @@ impl<T> Default for ConstPtr<T> {
 }
 
 impl<T: Sized> ConstPtr<T> {
+  pub fn new(t: &T) -> Self {
+    Self(t)
+  }
+
   pub fn raw(&self) -> *const T {
     self.0
+  }
+
+  pub fn null(&self) -> bool {
+    self.0 == ptr::null()
   }
 }
 
@@ -73,8 +81,16 @@ impl<T: Sized> Clone for MutPtr<T> {
 impl<T> Copy for MutPtr<T> {}
 
 impl<T> MutPtr<T> {
+  pub fn new(t: &mut T) -> Self {
+    Self(t)
+  }
+
   pub fn raw(&self) -> *mut T {
     self.0
+  }
+
+  pub fn null(&self) -> bool {
+    self.0 == ptr::null_mut()
   }
 }
 
