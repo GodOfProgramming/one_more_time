@@ -48,14 +48,36 @@ function MainMenuBar:rename_window()
 end
 
 function MainMenuBar:test()
-    local cpml = require("cpml.init");
-    if cpml then
-        local a = cpml.vec3.new(1, 2, 3);
-        local b = cpml.vec3.new(4, 5, 6);
-        local c = a + b;
+    local m = {}
+    local Parent = class([[Parent]], {
+      module = m,
+      body = {
+        foo = 1,
+      }
+    });
 
-        print(c);
-    else
-        print("req failed");
+    function Parent:hello()
+        print("parent hello");
     end
+
+    local Child = class([[Child]], {
+      extends = Parent,
+      module = m,
+      body = {
+        bar = 2,
+      }
+    });
+
+    function Child:hello()
+        print("child hello");
+    end
+
+    local parent = Parent:new();
+    local child = Child:new();
+
+    print("parent");
+    parent:hello();
+
+    print("child");
+    child:hello();
 end

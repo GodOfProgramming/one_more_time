@@ -93,7 +93,6 @@ impl EntityRepository {
       let mut entity = Entity::new(id);
 
       if let Some(class_name) = &tmpl.class {
-        println!("resolving {}", class_name);
         match script::resolve(lua, class_name) {
           Ok(mlua::Value::Table(class)) => {
             match class.call_function("new", class.clone()) {

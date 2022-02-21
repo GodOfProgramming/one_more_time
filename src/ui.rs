@@ -219,7 +219,6 @@ impl UiTemplate {
     for node in node.children {
       if node.name == "model" {
         if let Some(class_name) = node.attribs.get("class") {
-          println!("resolving {}", class_name);
           match script::resolve(lua, class_name) {
             Ok(class) => root.class = class,
             Err(err) => logger.error(format!("cannot find class '{}': {}", class_name, err)),

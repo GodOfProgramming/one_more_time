@@ -7,7 +7,6 @@ pub use mlua::{
 pub fn resolve<'lua>(lua: &'lua Lua, path: &str) -> Result<LuaValue<'lua>, GameError> {
   let mut value = LuaValue::Table(lua.globals());
   for part in path.split('.') {
-    println!("part = {}", part);
     match value {
       LuaValue::Table(table) => value = table.get(part).map_err(GameError::Lua)?,
       _ => {

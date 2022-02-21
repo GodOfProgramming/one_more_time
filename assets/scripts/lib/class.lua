@@ -2,9 +2,7 @@ local inspect = require("lib.inspect");
 
 function extend(parent, child)
     for k, v in pairs(parent) do
-        if (type(v) == 'table') then
-            child[k] = merge(parent[k], child[k]);
-        else
+        if child[k] == nil then
             child[k] = v;
         end
     end
@@ -33,11 +31,6 @@ end
 
 -- Class creator
 
---[[
-  @brief Create a new class
-  <br />
-  @param args { super: Class, body: {...} }
---]]
 function class(name, args)
     args = args == nil and {} or args;
     args.extends = args.extends or Class;

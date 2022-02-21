@@ -68,8 +68,6 @@ impl MainLogger {
     let logs = MainLogger::read_log_dir();
     let filename = MainLogger::next_log_rotation(logs, rotation_limit);
 
-    println!("logging to {:?}", filename);
-
     fs::create_dir_all(LOG_DIR)?;
 
     fern::Dispatch::new()
