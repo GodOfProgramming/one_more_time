@@ -37,14 +37,15 @@ impl UiElement for Menu {
     &mut self,
     logger: &dyn Logger,
     ui: &imgui::Ui<'_>,
-    lua: Option<&Lua>,
+    class: &LuaValue,
+    instance: &LuaValue,
     settings: &Settings,
   ) {
     let im_str = unsafe { ImStr::from_cstr_unchecked(&self.name) };
     let children = &mut self.children;
     if let Some(menu) = ui.begin_menu(im_str) {
       for child in children.iter_mut() {
-        child.update(logger, ui, lua, settings);
+        child.update(logger, ui, class, instance, settings);
       }
       menu.end();
     }

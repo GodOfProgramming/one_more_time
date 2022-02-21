@@ -1,43 +1,43 @@
-function initialize(_data)
-    Logger:debug("initialized");
-end
+require "lib.class";
+require 'lib.ui';
 
-function update()
+local MainMenuBar = class([[MainMenuBar]], { module = ui });
+
+function MainMenuBar:update()
     Logger:debug("updated");
 end
 
-function show_or_hide_profiler()
+function MainMenuBar:show_or_hide_profiler()
     Settings:game():show_or_hide_profiler();
 end
 
-function show_or_hide_demo_window()
+function MainMenuBar:show_or_hide_demo_window()
     Settings:game():show_or_hide_demo_window();
 end
 
-function on_exit()
+function MainMenuBar:on_exit()
     Logger:info("quitting game");
     App:request_exit();
 end
 
-function list_ui()
+function MainMenuBar:list_ui()
     for idx, item in ipairs(UiManager:list()) do
         print(idx .. ": " .. item);
     end
 end
 
-function create_window()
+function MainMenuBar:create_window()
     local handle = UiManager:open("test.test_window", "test_window_instance");
     if not handle then
         Logger:warning("handle is nil");
     end
 end
 
-function rename_window()
+function MainMenuBar:rename_window()
     local test_window_doc = UiManager:get("test_window_instance");
     if test_window_doc ~= nil then
         local win = test_window_doc:get_element_by_id("test_window");
         if win ~= nil then
-            print("setting attrib");
             win:set_attrib("title", "New Title");
         else
             print("win nil");
@@ -47,7 +47,7 @@ function rename_window()
     end
 end
 
-function test()
+function MainMenuBar:test()
     local cpml = require("cpml.init");
     if cpml then
         local a = cpml.vec3.new(1, 2, 3);

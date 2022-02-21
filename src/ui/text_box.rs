@@ -28,7 +28,8 @@ impl UiElement for TextBox {
     &mut self,
     logger: &dyn Logger,
     ui: &imgui::Ui<'_>,
-    _lua: Option<&Lua>,
+    class: &LuaValue,
+    instance: &LuaValue,
     _settings: &Settings,
   ) {
     ui.text(&self.text);

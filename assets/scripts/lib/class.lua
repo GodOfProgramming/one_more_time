@@ -18,7 +18,7 @@ Class = {}
 -- initializer
 
 function Class:new(o)
-    o = o or {};
+    o = o == nil and {} or o;
     setmetatable(o, self);
     self.__index = self;
     self.class = Class;
@@ -31,10 +31,6 @@ function Class:to_string()
     return inspect(self);
 end
 
-function Class:print()
-    print(self:to_string());
-end
-
 -- Class creator
 
 --[[
@@ -42,9 +38,12 @@ end
   <br />
   @param args { super: Class, body: {...} }
 --]]
-function class(args)
-    args = args or {};
-    args.super = args.super or Class;
+function class(name, args)
+    args = args == nil and {} or args;
+    args.extends = args.extends or Class;
     args.body = args.body or {};
-    return extend(args.super, args.body);
+    module = args.module == nil and _G or args.module;
+    new_class = extend(args.extends, args.body);
+    module[name] = new_class;
+    return new_class;
 end

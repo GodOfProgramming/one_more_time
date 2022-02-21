@@ -18,6 +18,8 @@ impl RecursiveDirIterator {
       }
     }
 
+    let dirs = dirs.into_iter().rev().collect();
+
     RecursiveDirIterator { dirs, idx: 0 }
   }
 }
@@ -48,6 +50,8 @@ impl From<&PathBuf> for RecursiveDirIterator {
       }
     }
 
+    let dirs = dirs.into_iter().rev().collect();
+
     RecursiveDirIterator { dirs, idx: 0 }
   }
 }
@@ -72,6 +76,8 @@ impl From<&PathBuf> for RecursiveDirIteratorWithID {
         dirs.push((entry.path().to_path_buf(), DirID::from(id)));
       }
     }
+
+    let dirs = dirs.into_iter().rev().collect();
 
     Self { dirs, idx: 0 }
   }

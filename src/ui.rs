@@ -29,21 +29,13 @@ pub mod components {
 
 pub mod common {
   pub use super::{types, SubElementMap, Ui, UiElement, UiElementParent, UiElementPtr};
-  pub use crate::{
-    type_map,
-    util::{convert::string, ChildLogger, Logger, MainLogger, Settings, XmlNode},
-  };
+  pub use crate::{type_map, util::prelude::*};
   pub use imgui_glium_renderer::imgui::{self, ImStr};
   pub use lazy_static::lazy_static;
   pub use maplit::hashmap;
-  pub use mlua::{prelude::*, Value};
+  pub use mlua::{prelude::*, UserData, UserDataFields, UserDataMetatable, UserDataMethods, Value};
   pub use std::{cell::RefCell, collections::BTreeMap, ffi::CString, rc::Rc};
 }
-
-use crate::{
-  scripting::prelude::*,
-  util::{Logger, Settings, XmlNode},
-};
 
 pub mod types {
   use super::{components::*, SubElementCreator, Ui, XmlNode};
@@ -105,7 +97,8 @@ pub trait UiElement: DynClone {
     &mut self,
     _logger: &dyn Logger,
     _ui: &imgui::Ui<'_>,
-    _lua: Option<&Lua>,
+    _class: &LuaValue,
+    _instance: &LuaValue,
     _settings: &Settings,
   ) {
     panic!("'update' not implemented");
@@ -160,10 +153,11 @@ impl UiElement for Ui {
     &mut self,
     logger: &dyn Logger,
     ui: &imgui::Ui<'_>,
-    lua: Option<&Lua>,
+    class: &LuaValue,
+    instance: &LuaValue,
     settings: &Settings,
   ) {
-    self.el_mut().update(logger, ui, lua, settings);
+    self.el_mut().update(logger, ui, class, instance, settings);
   }
 
   fn dupe(&self) -> UiElementPtr {
@@ -206,21 +200,32 @@ pub fn parse_children<E: UiElementParent>(root: XmlNode) -> Vec<Ui> {
 
 pub struct UiTemplate {
   el: Ui,
-  lua: Option<&'static Lua>,
+  class: LuaValue<'static>,
+}
+
+impl Default for UiTemplate {
+  fn default() -> Self {
+    Self {
+      el: EmptyUi::default().into(),
+      class: LuaValue::Nil,
+    }
+  }
 }
 
 impl UiTemplate {
-  pub fn new<L: Logger>(node: XmlNode, logger: &L, scripts: &ScriptRepository) -> Self {
+  pub fn new<L: Logger>(node: XmlNode, logger: &L, lua: &'static Lua) -> Self {
     let mut root = UiTemplate::default();
 
     for node in node.children {
-      if node.name == "script" {
-        if let Some(id) = node.attribs.get("id") {
-          if let Some(lua) = scripts.get(id) {
-            root.lua = Some(lua);
+      if node.name == "model" {
+        if let Some(class_name) = node.attribs.get("class") {
+          println!("resolving {}", class_name);
+          match script::resolve(lua, class_name) {
+            Ok(class) => root.class = class,
+            Err(err) => logger.error(format!("cannot find class '{}': {}", class_name, err)),
           }
         } else {
-          logger.error("script tag without id found".to_string());
+          logger.error("model tag without class name found".to_string());
         }
       } else if let Some(f) = Self::valid_children().get(node.name.as_str()) {
         root.el = f(node);
@@ -232,23 +237,25 @@ impl UiTemplate {
     root
   }
 
-  pub fn create_component<L: Logger>(&self, logger: &L, data: Value) -> UiComponentPtr {
+  pub fn create_component<L: Logger>(&self, logger: &L) -> UiComponentPtr {
     let mut id_map = BTreeMap::new();
     let el = self.el.clone_ui(&mut id_map);
-    let component = UiComponent::new(self.lua, el, id_map);
 
-    component.initialize(logger, data);
+    let (class, instance) = if let LuaValue::Table(class) = &self.class {
+      match class.call_function("new", class.clone()) {
+        Ok(instance) => (LuaValue::Table(class.clone()), LuaValue::Table(instance)),
+        Err(err) => {
+          logger.error(format!("constructor failed: {}", err));
+          (LuaValue::Table(class.clone()), LuaValue::Nil)
+        }
+      }
+    } else {
+      (LuaValue::Nil, LuaValue::Nil)
+    };
+
+    let component = UiComponent::new(el, class, instance, id_map);
 
     UiComponentPtr::new(component)
-  }
-}
-
-impl Default for UiTemplate {
-  fn default() -> Self {
-    UiTemplate {
-      el: EmptyUi::default().into(),
-      lua: None,
-    }
   }
 }
 
@@ -266,39 +273,39 @@ impl UiElementParent for UiTemplate {
 
 pub struct UiComponent {
   el: Ui,
-  lua: Option<&'static Lua>,
+  class: LuaValue<'static>,
+  instance: LuaValue<'static>,
   element_mapping: BTreeMap<String, Ui>,
 }
 
 impl UiComponent {
-  fn new(lua: Option<&'static Lua>, el: Ui, element_mapping: BTreeMap<String, Ui>) -> Self {
+  fn new(
+    el: Ui,
+    class: LuaValue<'static>,
+    instance: LuaValue<'static>,
+    element_mapping: BTreeMap<String, Ui>,
+  ) -> Self {
     Self {
-      lua,
       el,
+      class,
+      instance,
       element_mapping,
     }
   }
 
-  fn update(&mut self, logger: &dyn Logger, ui: &imgui::Ui<'_>, settings: &Settings) {
+  fn update(
+    &mut self,
+    logger: &dyn Logger,
+    ui: &imgui::Ui<'_>,
+    lua: &'static Lua,
+    settings: &Settings,
+  ) {
     let ptr = self.as_ptr_mut();
-    if let Some(lua) = &self.lua {
-      let _ = lua.globals().set("document", ptr);
-      self.el.update(logger, ui, Some(lua), settings);
-    } else {
-      self.el.update(logger, ui, None, settings);
-    }
-  }
+    let _ = lua.globals().set("document", ptr);
 
-  fn initialize<L: Logger>(&self, logger: &L, data: Value) {
-    if let Some(lua) = &self.lua {
-      let globals = lua.globals();
-      if let Ok(true) = globals.contains_key("initialize") {
-        let res: Result<(), mlua::Error> = globals.call_function("initialize", data);
-        if let Err(e) = res {
-          logger.error(e.to_string());
-        }
-      }
-    }
+    self
+      .el
+      .update(logger, ui, &self.class, &self.instance, settings);
   }
 
   fn get_element_by_id(&mut self, id: &str) -> Option<MutPtr<Ui>> {

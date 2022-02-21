@@ -1,11 +1,15 @@
 use crate::input::keyboard::Key;
 
-type ConversionResult<T> = Result<T, String>;
+#[derive(Debug, PartialEq)]
+pub enum ConversionError {
+  Malformed(String),
+}
+
+pub type ConversionResult<T> = Result<T, ConversionError>;
 
 pub mod string {
   use super::*;
   use crate::math::glm::IVec2;
-  use log::warn;
   use std::{ffi::CString, num::NonZeroU8};
 
   pub fn into_cstring(s: &str) -> CString {
@@ -53,7 +57,7 @@ pub mod string {
       if let Ok(v) = s.parse::<i32>() {
         Ok(v)
       } else {
-        Err(())
+        Err(ConversionError::Malformed(String::from("expected number")))
       }
     };
 
@@ -76,7 +80,7 @@ pub mod string {
     skip_whitespace(buff, &mut index);
 
     if !expect(buff, &mut index, '(') {
-      return Err(String::from("expected '('"));
+      return Err(ConversionError::Malformed(String::from("expected '('")));
     }
 
     skip_whitespace(buff, &mut index);
@@ -84,13 +88,13 @@ pub mod string {
     if let Ok(x) = parse_num(buff, &mut index) {
       vec.x = x;
     } else {
-      return Err(String::from("expected number"));
+      return Err(ConversionError::Malformed(String::from("expected number")));
     }
 
     skip_whitespace(buff, &mut index);
 
     if !expect(buff, &mut index, ',') {
-      return Err(String::from("expected ','"));
+      return Err(ConversionError::Malformed(String::from("expected ','")));
     }
 
     skip_whitespace(buff, &mut index);
@@ -98,13 +102,13 @@ pub mod string {
     if let Ok(y) = parse_num(buff, &mut index) {
       vec.y = y;
     } else {
-      return Err(String::from("expected number"));
+      return Err(ConversionError::Malformed(String::from("expected number")));
     }
 
     skip_whitespace(buff, &mut index);
 
     if !expect(buff, &mut index, ')') {
-      return Err(String::from("expected ')'"));
+      return Err(ConversionError::Malformed(String::from("expected ')'")));
     }
 
     Ok(vec)
@@ -157,7 +161,9 @@ pub mod value {
     if let Value::Integer(v) = value {
       Ok(*v as u8)
     } else {
-      Err(String::from("value was not an integer (u8)"))
+      Err(ConversionError::Malformed(String::from(
+        "value was not an integer (u8)",
+      )))
     }
   }
 
@@ -165,7 +171,9 @@ pub mod value {
     if let Value::Integer(v) = value {
       Ok(*v as u32)
     } else {
-      Err(String::from("value was not an integer (u32)"))
+      Err(ConversionError::Malformed(String::from(
+        "value was not an integer (u32)",
+      )))
     }
   }
 
@@ -173,7 +181,9 @@ pub mod value {
     if let Value::Float(v) = value {
       Ok(*v as f32)
     } else {
-      Err(String::from("value was not a float (f32)"))
+      Err(ConversionError::Malformed(String::from(
+        "value was not a float (f32)",
+      )))
     }
   }
 
@@ -181,7 +191,9 @@ pub mod value {
     if let Value::String(v) = value {
       Ok(v.clone())
     } else {
-      Err(String::from("value was not a string"))
+      Err(ConversionError::Malformed(String::from(
+        "value was not a string",
+      )))
     }
   }
 
@@ -193,7 +205,9 @@ pub mod value {
       }
       Ok(storage)
     } else {
-      Err(String::from("value was not an array of strings"))
+      Err(ConversionError::Malformed(String::from(
+        "value was not an array of strings",
+      )))
     }
   }
 
@@ -231,14 +245,19 @@ pub mod value {
       "down" => Key::DownArrow,
       "left" => Key::LeftArrow,
       "right" => Key::RightArrow,
-      _ => return Err(format!("key '{}' does not have string mapping", value)),
+      _ => {
+        return Err(ConversionError::Malformed(format!(
+          "key '{}' does not have string mapping",
+          value
+        )))
+      }
     })
   }
 }
 
 #[cfg(test)]
 mod tests {
-  use super::{path, string};
+  use super::{path, string, ConversionError};
   use crate::math::glm::IVec2;
   use std::path::Path;
 
@@ -252,12 +271,30 @@ mod tests {
       ("(12, 34)", Ok(IVec2::new(12, 34))),
       ("(123, 456)", Ok(IVec2::new(123, 456))),
       ("(1,2)", Ok(IVec2::new(1, 2))),
-      ("1, 23)", Err(())),
-      ("(1, 23", Err(())),
-      ("1, 2", Err(())),
-      ("()", Err(())),
-      ("(1 2)", Err(())),
-      (",", Err(())),
+      (
+        "1, 23)",
+        Err(ConversionError::Malformed(String::from("expected '('"))),
+      ),
+      (
+        "(1, 23",
+        Err(ConversionError::Malformed(String::from("expected ')'"))),
+      ),
+      (
+        "1, 2",
+        Err(ConversionError::Malformed(String::from("expected '('"))),
+      ),
+      (
+        "()",
+        Err(ConversionError::Malformed(String::from("expected number"))),
+      ),
+      (
+        "(1 2)",
+        Err(ConversionError::Malformed(String::from("expected ','"))),
+      ),
+      (
+        ",",
+        Err(ConversionError::Malformed(String::from("expected '('"))),
+      ),
     ];
 
     for (s, r) in tests {

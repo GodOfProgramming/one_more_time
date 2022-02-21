@@ -1,10 +1,7 @@
 use super::{common::*, UiComponentPtr, UiTemplate};
-use crate::{
-  scripting::prelude::*,
-  util::{ChildLogger, DirID, Logger, Settings, XmlNode},
-};
+use crate::util::prelude::*;
 use imgui_glium_renderer::imgui::Ui;
-use mlua::{UserData, UserDataMethods, Value};
+use mlua::{Lua, UserData, UserDataMethods, Value};
 use std::{collections::BTreeMap, path::PathBuf};
 
 pub struct UiManager {
@@ -22,7 +19,7 @@ impl UiManager {
     }
   }
 
-  pub fn load_ui<I>(&mut self, iter: I, scripts: &ScriptRepository)
+  pub fn load_ui<I>(&mut self, iter: I, lua: &'static Lua)
   where
     I: Iterator<Item = (PathBuf, DirID)>,
   {
@@ -35,7 +32,7 @@ impl UiManager {
           if let Some(node) = nodes.drain(..).next() {
             self
               .templates
-              .insert(id, UiTemplate::new(node, &self.logger, scripts));
+              .insert(id, UiTemplate::new(node, &self.logger, lua));
           } else {
             self.logger.error(format!("xml {:?} was empty", entry));
           }
@@ -53,15 +50,21 @@ impl UiManager {
   }
 
   #[profiling::function]
-  pub fn update(&mut self, logger: &dyn Logger, ui: &Ui<'_>, settings: &Settings) {
+  pub fn update(
+    &mut self,
+    logger: &dyn Logger,
+    ui: &Ui<'_>,
+    lua: &'static Lua,
+    settings: &Settings,
+  ) {
     for element in self.open_ui.values_mut() {
-      element.component().update(logger, ui, settings);
+      element.component().update(logger, ui, lua, settings);
     }
   }
 
-  pub fn open(&mut self, id: &str, name: &str, data: Value) -> Option<UiComponentPtr> {
+  pub fn open(&mut self, id: &str, name: &str) -> Option<UiComponentPtr> {
     if let Some(tmpl) = self.templates.get(&DirID::from(id)) {
-      let component = tmpl.create_component(&self.logger, data);
+      let component = tmpl.create_component(&self.logger);
       self.open_ui.insert(name.to_string(), component.clone());
       Some(component)
     } else {
@@ -88,16 +91,13 @@ impl AsPtr for UiManager {}
 
 impl UserData for MutPtr<UiManager> {
   fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-    methods.add_method_mut(
-      "open",
-      |_, this, (id, name, data): (String, String, Value)| {
-        if let Some(mut ptr) = this.open(&id, &name, data) {
-          Ok(Some(ptr.component().as_ptr_mut()))
-        } else {
-          Ok(None)
-        }
-      },
-    );
+    methods.add_method_mut("open", |_, this, (id, name): (String, String)| {
+      if let Some(mut ptr) = this.open(&id, &name) {
+        Ok(Some(ptr.component().as_ptr_mut()))
+      } else {
+        Ok(None)
+      }
+    });
 
     methods.add_method("get", |_, this, name: String| {
       if let Some(mut ptr) = this.get(&name) {

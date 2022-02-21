@@ -1,4 +1,5 @@
-use crate::scripting::prelude::*;
+use crate::util::prelude::*;
+use mlua::{UserData, UserDataFields};
 pub use nalgebra_glm as glm;
 
 pub mod geom;

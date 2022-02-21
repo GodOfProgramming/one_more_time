@@ -1,6 +1,13 @@
 require "lib.class";
+require "lib.core";
 
-Square = class { body = { count = 0 } };
+local Square = class([[Square]], {
+  module = core,
+  extends = Class,
+  body = {
+    count = 0
+  }
+});
 
 function Square:update()
     if self.count == 0 then

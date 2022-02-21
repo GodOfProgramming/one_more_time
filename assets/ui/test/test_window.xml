@@ -1,7 +1,7 @@
-<ui>
+<root>
   <window decorated="false" transparent="true" title="Test" id="test_window">
     <textbox>example 1</textbox>
     <textbox>example 2</textbox>
     <textbox>example 3</textbox>
   </window>
-</ui>
+</root>

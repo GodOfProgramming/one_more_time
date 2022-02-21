@@ -1,5 +1,5 @@
 <root>
-  <script id="core.main_menu_bar" />
+  <model class="ui.MainMenuBar" />
   <main-menu-bar>
     <menu name="Game">
       <menu-item name="Show/Hide Profiler" click="show_or_hide_profiler"></menu-item>

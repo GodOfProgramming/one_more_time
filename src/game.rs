@@ -7,12 +7,8 @@ use crate::{
     keyboard::{Key, KeyAction},
     InputCheck, InputDevices,
   },
-  scripting::prelude::*,
   ui::UiManager,
-  util::{
-    ChildLogger, Dirs, FpsManager, Logger, MainLogger, RecursiveDirIteratorWithID, Settings,
-    SpawnableLogger,
-  },
+  util::prelude::*,
   view::window::Window,
 };
 pub use cam::Camera;
@@ -24,7 +20,8 @@ use imgui_glium_renderer::glium::{
   Surface,
 };
 use imgui_glium_renderer::imgui;
-use mlua::{UserData, UserDataMethods, Value};
+use mlua::{prelude::*, UserData, UserDataMethods, Value};
+use std::fs;
 use world::{EntityRepository, Map, MapData};
 
 #[derive(PartialEq)]
@@ -47,14 +44,14 @@ impl App {
   }
 
   pub fn run(&mut self, settings: &mut Settings, dirs: &Dirs, input_devices: &mut InputDevices) {
-    // window
+    self.logger.info("creating window".to_string());
     let (window, draw_interface) = Window::new(settings);
 
-    // opengl
+    self.logger.info("initializing opengl".to_string());
     let behavior = App::create_opengl_debug_behavior(self.logger.spawn());
     let gl_context = unsafe { Context::new(draw_interface, false, behavior).unwrap() };
 
-    // shaders
+    self.logger.info("initializing shaders".to_string());
     let mut shaders = ShaderSources::new();
     shaders.load_all(
       &self.logger,
@@ -62,10 +59,10 @@ impl App {
     );
     let shader_repository = shaders.load_repository(&gl_context, &self.logger);
 
-    // models
+    self.logger.info("initializing models".to_string());
     let model_repository = ModelRepository::new(&gl_context);
 
-    // textures
+    self.logger.info("initializing textures".to_string());
     let mut texture_sources = TextureSources::default();
     texture_sources.load_all(
       &self.logger,
@@ -73,36 +70,16 @@ impl App {
     );
     let texture_repository = texture_sources.load_repository(&self.logger, &gl_context);
 
-    // ui
+    self.logger.info("initializing ui".to_string());
     let mut imgui_ctx = imgui_glium_renderer::imgui::Context::create();
     imgui_ctx.set_log_filename(None);
     let mut imgui_render =
       imgui_glium_renderer::Renderer::init(&mut imgui_ctx, &gl_context.clone()).unwrap();
     window.setup_imgui(&mut imgui_ctx);
 
-    let mut script_loader = ScriptLoader::new(
-      &self.logger,
-      settings,
-      RecursiveDirIteratorWithID::from(&dirs.assets.scripts),
-    );
-
     let mut ui_manager = UiManager::new(self.logger.spawn());
 
-    {
-      let logger_ptr = self.logger.as_ptr();
-      let app_ptr = self.as_ptr_mut();
-      let settings_ptr = settings.as_ptr_mut();
-      let ui_manager_ptr = ui_manager.as_ptr_mut();
-      script_loader.register_init_fn(Box::new(move |lua| {
-        let globals = lua.globals();
-        let _ = globals.set("App", app_ptr);
-        let _ = globals.set("Logger", logger_ptr);
-        let _ = globals.set("Settings", settings_ptr);
-        let _ = globals.set("UiManager", ui_manager_ptr);
-      }));
-    }
-
-    // game
+    self.logger.info("initializing entities".to_string());
     let entity_repository = EntityRepository::new(
       self.logger.spawn(),
       RecursiveDirIteratorWithID::from(&dirs.assets.cfg.entities),
@@ -110,32 +87,20 @@ impl App {
 
     let mut fps_manager = FpsManager::new(settings.graphics.fps.into());
 
-    // script module functions
-    {
-      let dirs_ptr = dirs.as_ptr();
-      script_loader.register_init_fn(Box::new(move |lua: &Lua| {
-        let globals = lua.globals();
-        let package: mlua::Table = globals.get("package").unwrap();
-        let path: String = package.get("path").unwrap();
-        let path = format!(
-          "{}/?.lua;{}",
-          dirs_ptr.assets.scripts.to_str().unwrap(),
-          path
-        );
-        package.set("path", path).unwrap();
-      }));
-    }
+    self.logger.info("initializing lua".to_string());
+    let lua = self.initialize_lua(dirs, settings, &mut ui_manager);
 
-    let scripts = script_loader.load_scripts(&self.logger);
-
-    ui_manager.load_ui(RecursiveDirIteratorWithID::from(&dirs.assets.ui), &scripts);
+    self.logger.info("loading ui".to_string());
+    ui_manager.load_ui(RecursiveDirIteratorWithID::from(&dirs.assets.ui), lua);
 
     if cfg!(debug_assertions) {
-      ui_manager.open("core.main_menu_bar", "debug_main_menu_bar", Value::Nil);
+      self.logger.info("opening debug menu".to_string());
+      ui_manager.open("core.main_menu_bar", "debug_main_menu_bar");
     }
 
     let mut puffin_ui = puffin_imgui::ProfilerUi::default();
 
+    self.logger.info("creating map".to_string());
     let map_data = MapData {
       width: 0,
       height: 0,
@@ -143,17 +108,19 @@ impl App {
     let mut map = Map::new(
       map_data,
       self.logger.spawn(),
+      lua,
       entity_repository.as_ptr(),
-      scripts.as_ptr(),
       shader_repository.as_ptr(),
       model_repository.as_ptr(),
       texture_repository.as_ptr(),
     );
 
+    self.logger.info("spawning test character".to_string());
     map.spawn("characters.test.square");
 
     let mut camera = Camera::default();
 
+    self.logger.info("showing window".to_string());
     window.show();
 
     let mut i: f32 = 0.0;
@@ -210,7 +177,7 @@ impl App {
 
       let ui: imgui::Ui<'_> = imgui_ctx.frame();
 
-      ui_manager.update(&self.logger, &ui, settings);
+      ui_manager.update(&self.logger, &ui, lua, settings);
 
       if settings.game.show_profiler {
         puffin_ui.window(&ui);
@@ -274,6 +241,56 @@ impl App {
         },
       ),
     }
+  }
+
+  fn initialize_lua(
+    &mut self,
+    dirs: &Dirs,
+    settings: &mut Settings,
+    ui_manager: &mut UiManager,
+  ) -> &'static Lua {
+    let lua = Lua::new();
+
+    {
+      let globals = lua.globals();
+
+      let dirs_ptr = dirs.as_ptr();
+
+      let package: mlua::Table = globals.get("package").unwrap();
+      let path: String = package.get("path").unwrap();
+      let path = format!(
+        "{}/?.lua;{}",
+        dirs_ptr.assets.scripts.to_str().unwrap(),
+        path
+      );
+      package.set("path", path).unwrap();
+
+      let logger_ptr = self.logger.as_ptr();
+      let app_ptr = self.as_ptr_mut();
+      let settings_ptr = settings.as_ptr_mut();
+      let ui_manager_ptr = ui_manager.as_ptr_mut();
+      let _ = globals.set("App", app_ptr);
+      let _ = globals.set("Logger", logger_ptr);
+      let _ = globals.set("Settings", settings_ptr);
+      let _ = globals.set("UiManager", ui_manager_ptr);
+
+      for (file, id) in RecursiveDirIteratorWithID::from(&dirs.assets.scripts) {
+        if settings
+          .scripts
+          .exclude
+          .iter()
+          .any(|reg: &regex::Regex| reg.is_match(&id))
+        {
+          continue;
+        }
+
+        if let Ok(src) = fs::read_to_string(file) {
+          lua.load(&src).exec().unwrap();
+        }
+      }
+    }
+
+    lua.into_static()
   }
 }
 

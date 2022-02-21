@@ -1,4 +1,4 @@
-use crate::{math::Dim, scripting::prelude::*};
+use crate::{math::Dim, util::prelude::*};
 use mlua::{UserData, UserDataMethods};
 use toml::{value::Table, Value};
 

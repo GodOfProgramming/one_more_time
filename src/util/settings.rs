@@ -8,7 +8,7 @@ pub mod graphics;
 pub mod scripts;
 
 mod common {
-  pub use crate::scripting::prelude::*;
+  pub use crate::util::prelude::*;
   pub use mlua::{Lua, UserData, UserDataFields, UserDataMethods};
   pub use std::cell::Cell;
   pub use toml::{value::Table, Value};

@@ -29,12 +29,13 @@ impl UiElement for MainMenuBar {
     &mut self,
     logger: &dyn Logger,
     ui: &imgui::Ui<'_>,
-    lua: Option<&Lua>,
+    class: &LuaValue,
+    instance: &LuaValue,
     settings: &Settings,
   ) {
     ui.main_menu_bar(|| {
       for child in self.children.iter_mut() {
-        child.update(logger, ui, lua, settings);
+        child.update(logger, ui, class, instance, settings);
       }
     });
   }

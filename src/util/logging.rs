@@ -1,4 +1,4 @@
-use crate::scripting::prelude::*;
+use crate::util::prelude::*;
 use fern::InitError;
 use log::LevelFilter;
 use log::{debug, error, info, trace, warn};
@@ -254,5 +254,20 @@ impl SpawnableLogger<ChildLogger> for ChildLogger {
     Self {
       sender: self.sender.clone(),
     }
+  }
+}
+
+#[cfg(test)]
+pub mod tests {
+  use super::Logger;
+
+  pub struct MockLogger;
+
+  impl Logger for MockLogger {
+    fn trace(&self, _: std::string::String) {}
+    fn debug(&self, _: std::string::String) {}
+    fn info(&self, _: std::string::String) {}
+    fn warn(&self, _: std::string::String) {}
+    fn error(&self, _: std::string::String) {}
   }
 }

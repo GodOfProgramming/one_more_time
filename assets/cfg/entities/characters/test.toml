@@ -1,6 +1,5 @@
 [square]
-script = "test.entity"
-class = "Square"
+class = "core.Square"
 model = "sprite"
 texture = "grass"
 shader = "test.basic"

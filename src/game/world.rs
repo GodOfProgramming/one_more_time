@@ -1,17 +1,11 @@
 use super::Camera;
-use crate::{
-  gfx::*,
-  scripting::prelude::*,
-  util::{ChildLogger, DirID, Logger},
-};
+use crate::{gfx::*, util::prelude::*};
 use imgui_glium_renderer::glium::{texture::SrgbTexture2d, uniform, Surface};
-use mlua::Table;
 use std::{collections::BTreeMap, fs, path::PathBuf, rc::Rc};
 use toml::Value;
 use uid::Id;
 
 mod keys {
-  pub const SCRIPT: &str = "script";
   pub const CLASS: &str = "class";
   pub const SHADER: &str = "shader";
   pub const MODEL: &str = "model";
@@ -40,12 +34,6 @@ impl EntityRepository {
               for (k, v) in table {
                 let id = id.extend(k);
 
-                let script = if let Some(Value::String(script)) = v.get(keys::SCRIPT) {
-                  Some(script.clone())
-                } else {
-                  None
-                };
-
                 let class = if let Some(Value::String(on_update)) = v.get(keys::CLASS) {
                   Some(on_update.clone())
                 } else {
@@ -71,7 +59,6 @@ impl EntityRepository {
                 };
 
                 let tmpl = EntityTemplate {
-                  script,
                   class,
                   shader,
                   model,
@@ -96,7 +83,7 @@ impl EntityRepository {
   pub fn construct(
     &self,
     item_id: &str,
-    scripts: &ScriptRepository,
+    lua: &'static Lua,
     shaders: &ShaderRepository,
     models: &ModelRepository,
     textures: &TextureRepository,
@@ -105,42 +92,22 @@ impl EntityRepository {
       let id = Id::new();
       let mut entity = Entity::new(id);
 
-      if let Some(script) = &tmpl.script {
-        if let Some(lua) = scripts.get(script) {
-          entity.lua = Some(lua);
-          if let Some(class_name) = &tmpl.class {
-            let globals = lua.globals();
-            if let Ok(mlua::Value::Table(class)) = globals.get(class_name.as_str()) {
-              entity.class = Some(class_name.clone());
-
-              let data = match class.get("new") {
-                Ok(mlua::Value::Function(new)) => {
-                  let res: Result<Table, mlua::Error> = new.call(class);
-
-                  match res {
-                    Ok(data) => data,
-                    Err(e) => {
-                      self.logger.error(e.to_string());
-                      lua.create_table().unwrap()
-                    }
-                  }
-                }
-                Ok(mlua::Value::Nil) => lua.create_table().unwrap(),
-                Ok(_) => {
-                  self
-                    .logger
-                    .error("invalid type for initializer function".to_string());
-                  lua.create_table().unwrap()
-                }
-                Err(e) => {
-                  self.logger.error(e.to_string());
-                  lua.create_table().unwrap()
-                }
-              };
-
-              entity.data = Some(mlua::Value::Table(data));
+      if let Some(class_name) = &tmpl.class {
+        println!("resolving {}", class_name);
+        match script::resolve(lua, class_name) {
+          Ok(mlua::Value::Table(class)) => {
+            match class.call_function("new", class.clone()) {
+              Ok(instance) => entity.instance = Some(LuaValue::Table(instance)),
+              Err(e) => self.logger.error(e.to_string()),
             }
+            entity.class = Some(class);
           }
+          Ok(other) => {
+            self
+              .logger
+              .error(format!("invalid class type for entity: {:?}", other));
+          }
+          Err(e) => self.logger.error(e.to_string()),
         }
       }
 
@@ -171,7 +138,6 @@ impl AsPtr for EntityRepository {}
 
 #[derive(Default)]
 pub struct EntityTemplate {
-  script: Option<String>,
   class: Option<String>,
   shader: Option<String>,
   model: Option<String>,
@@ -181,14 +147,13 @@ pub struct EntityTemplate {
 #[derive(Default)]
 pub struct Entity {
   id: EntityId,
-  lua: Option<&'static Lua>,
-  class: Option<String>,
+
+  class: Option<LuaTable<'static>>,
+  instance: Option<LuaValue<'static>>,
+
   shader: Option<Rc<Shader>>,
   model: Option<Rc<Model>>,
   texture: Option<Rc<SrgbTexture2d>>,
-  data: Option<mlua::Value<'static>>,
-
-  test: f32,
 }
 
 impl Entity {
@@ -200,20 +165,13 @@ impl Entity {
   }
 
   fn update<L: Logger>(&mut self, logger: &L) {
-    self.test += 1.0;
-    if let Some(lua) = &self.lua {
-      if let Some(class) = &self.class {
-        let globals = lua.globals();
-
-        if let Ok(mlua::Value::Table(class)) = globals.get(class.as_str()) {
-          if let Ok(mlua::Value::Function(on_update)) = class.get("update") {
-            let handle = self.as_ptr_mut();
-            if let Some(data) = &self.data {
-              let res: Result<(), mlua::Error> = on_update.call((data.clone(), handle));
-              if let Err(e) = res {
-                logger.error(e.to_string());
-              }
-            }
+    if let Some(class) = &self.class {
+      if let Ok(mlua::Value::Function(on_update)) = class.get("update") {
+        let handle = self.as_ptr_mut();
+        if let Some(instance) = &self.instance {
+          let res: Result<(), mlua::Error> = on_update.call((instance.clone(), handle));
+          if let Err(e) = res {
+            logger.error(e.to_string());
           }
         }
       }
@@ -227,11 +185,7 @@ impl Entity {
           use crate::math::glm;
           let transform = glm::Mat4::identity();
           let transform = glm::scale(&transform, &glm::vec3(5.0, 5.0, 1.0));
-          let transform = glm::rotate(
-            &transform,
-            self.test.to_radians(),
-            &glm::vec3(0.0, 0.0, 1.0),
-          );
+          let transform = glm::rotate(&transform, 45_f32.to_radians(), &glm::vec3(0.0, 0.0, 1.0));
           let transform: [[f32; 4]; 4] = transform.into();
           let view = camera.view();
           let proj = camera.projection();
@@ -292,8 +246,9 @@ pub struct Map {
 
   logger: ChildLogger,
 
+  lua: &'static Lua,
+
   entities: ConstPtr<EntityRepository>,
-  scripts: ConstPtr<ScriptRepository>,
   shaders: ConstPtr<ShaderRepository>,
   models: ConstPtr<ModelRepository>,
   textures: ConstPtr<TextureRepository>,
@@ -303,8 +258,8 @@ impl Map {
   pub fn new(
     data: MapData,
     logger: ChildLogger,
+    lua: &'static Lua,
     entities: ConstPtr<EntityRepository>,
-    scripts: ConstPtr<ScriptRepository>,
     shaders: ConstPtr<ShaderRepository>,
     models: ConstPtr<ModelRepository>,
     textures: ConstPtr<TextureRepository>,
@@ -320,8 +275,9 @@ impl Map {
 
       logger,
 
+      lua,
+
       entities,
-      scripts,
       shaders,
       models,
       textures,
@@ -343,14 +299,14 @@ impl Map {
   pub fn spawn(&mut self, item_id: &str) {
     let entity = self.entities.construct(
       item_id,
-      &self.scripts,
+      &self.lua,
       &self.shaders,
       &self.models,
       &self.textures,
     );
 
     if let Ok(entity) = entity {
-      let is_mutable = entity.lua.is_some() && entity.class.is_some();
+      let is_mutable = entity.class.is_some() && entity.instance.is_some();
       let is_renderable = entity.model.is_some() && entity.texture.is_some();
 
       let mut entity = Box::new(entity);
