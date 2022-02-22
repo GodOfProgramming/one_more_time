@@ -1,7 +1,6 @@
 use super::common::*;
-use regex::Regex;
+use omt::{regex::Regex, toml::Value};
 use std::str::FromStr;
-use toml::Value;
 
 mod keys {
   pub const EXCLUDE: &str = "exclude";

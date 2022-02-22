@@ -1,6 +1,6 @@
 use super::*;
 use crate::util::prelude::*;
-use imgui_glium_renderer::glium::{
+use omt::glium::{
   backend::Facade,
   index::{IndexBuffer, PrimitiveType},
   vertex::VertexBuffer,

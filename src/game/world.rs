@@ -1,14 +1,17 @@
 use super::Camera;
-use crate::{gfx::*, util::prelude::*};
-use imgui_glium_renderer::glium::{texture::SrgbTexture2d, uniform, Surface};
+use crate::{gfx::*, math::glm::Mat4, util::prelude::*};
+use omt::{
+  glium::{texture::SrgbTexture2d, uniform, Surface},
+  mlua,
+  toml::Value,
+  uid::Id,
+};
 use std::{
   collections::{BTreeMap, BTreeSet},
   fs,
   path::PathBuf,
   rc::Rc,
 };
-use toml::Value;
-use uid::Id;
 
 mod keys {
   pub const CLASS: &str = "class";
@@ -105,7 +108,7 @@ impl EntityRepository {
 
       if let Some(class_name) = &tmpl.class {
         match script::resolve(lua, class_name) {
-          Ok(mlua::Value::Table(class)) => {
+          Ok(LuaValue::Table(class)) => {
             match class.call_function("new", class.clone()) {
               Ok(instance) => entity.instance = Some(LuaValue::Table(instance)),
               Err(e) => self.logger.error(e.to_string()),
@@ -165,6 +168,7 @@ pub struct Entity {
   shader: Option<Rc<Shader>>,
   model: Option<Rc<Model>>,
   texture: Option<Rc<SrgbTexture2d>>,
+  transform: Mat4,
 }
 
 impl Entity {
@@ -178,7 +182,7 @@ impl Entity {
 
   fn update<L: Logger>(&mut self, logger: &L) {
     if let Some(class) = &self.class {
-      if let Ok(mlua::Value::Function(on_update)) = class.get("update") {
+      if let Ok(LuaValue::Function(on_update)) = class.get("update") {
         let handle = self.as_ptr_mut();
         if let Some(instance) = &self.instance {
           let res: Result<(), mlua::Error> = on_update.call((instance.clone(), handle));
@@ -250,6 +254,12 @@ impl UserData for MutPtr<Entity> {
       this.dispose();
       Ok(())
     });
+    methods.add_method_mut("set_position", |_, this, vec3: LuaTable| Ok(()));
+    methods.add_method_mut(
+      "set_rotation",
+      |_, this, (degrees, angle): (f32, LuaTable)| Ok(()),
+    );
+    methods.add_method_mut("set_scale", |_, this, vec3: LuaValue| Ok(()));
   }
 }
 

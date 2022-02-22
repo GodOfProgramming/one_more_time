@@ -1,6 +1,6 @@
 use super::DirID;
+use omt::walkdir::{DirEntry, WalkDir};
 use std::path::{Path, PathBuf};
-use walkdir::{DirEntry, WalkDir};
 
 pub struct RecursiveDirIterator {
   dirs: Vec<PathBuf>,

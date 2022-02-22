@@ -305,32 +305,10 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 name = "game"
 version = "0.1.0"
 dependencies = [
- "chlorine",
- "chrono",
- "double",
- "dyn-clone",
  "enum-map",
- "fern",
- "glfw",
- "image",
- "imgui-glium-renderer",
- "lazy_static",
- "log",
- "maplit",
- "mlua",
- "nalgebra-glm",
- "ncollide2d",
- "profiling",
- "puffin",
- "puffin-imgui",
- "regex",
- "scheduled-thread-pool",
+ "omt",
  "strum",
  "strum_macros",
- "toml",
- "uid",
- "walkdir",
- "xml-rs",
 ]
 
 [[package]]
@@ -819,6 +797,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67ac1d3f9a1d3616fd9a60c8d74296f22406a238b6a72f5cc1e6f314df4ffbf9"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "omt"
+version = "0.1.0"
+dependencies = [
+ "chlorine",
+ "chrono",
+ "double",
+ "dyn-clone",
+ "fern",
+ "glfw",
+ "image",
+ "imgui-glium-renderer",
+ "lazy_static",
+ "log",
+ "maplit",
+ "mlua",
+ "nalgebra-glm",
+ "ncollide2d",
+ "profiling",
+ "puffin",
+ "puffin-imgui",
+ "regex",
+ "scheduled-thread-pool",
+ "toml",
+ "uid",
+ "walkdir",
+ "xml-rs",
 ]
 
 [[package]]

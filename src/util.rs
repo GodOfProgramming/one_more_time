@@ -8,6 +8,7 @@ pub use self::{
   settings::Settings,
   xml::XmlNode,
 };
+use omt::mlua;
 use std::fmt::{Display, Error, Formatter};
 
 pub mod convert;

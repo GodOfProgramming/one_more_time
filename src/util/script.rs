@@ -1,5 +1,5 @@
 use super::prelude::*;
-pub use mlua::{
+pub use omt::mlua::{
   prelude::*, Table as LuaTable, UserData, UserDataFields, UserDataMetatable, UserDataMethods,
   Value as LuaValue,
 };

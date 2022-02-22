@@ -1,7 +1,6 @@
 use enum_map::{Enum, EnumMap};
-use imgui_glium_renderer::imgui;
-use std::collections::HashMap;
-use strum::{EnumCount, IntoEnumIterator};
+use omt::{glfw, imgui};
+use strum::IntoEnumIterator;
 use strum_macros::{EnumCount, EnumIter};
 
 #[repr(usize)]

@@ -1,5 +1,5 @@
 use crate::math::glm::{Vec2, Vec3};
-use imgui_glium_renderer::glium::implement_vertex;
+use omt::glium::implement_vertex;
 
 pub type Vertices = Vec<Vertex>;
 pub type Indices = Vec<u32>;

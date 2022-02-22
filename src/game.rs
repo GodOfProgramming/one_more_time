@@ -1,6 +1,8 @@
 mod cam;
 mod world;
 
+use std::fs;
+
 use crate::{
   gfx::*,
   input::{
@@ -11,17 +13,23 @@ use crate::{
   util::prelude::*,
   view::window::Window,
 };
-pub use cam::Camera;
-use imgui_glium_renderer::glium::{
-  self,
-  backend::Context,
-  debug::DebugCallbackBehavior,
-  debug::{MessageType, Severity, Source},
-  Surface,
+
+use omt::{
+  glium::{
+    self,
+    backend::Context,
+    debug::DebugCallbackBehavior,
+    debug::{MessageType, Severity, Source},
+    Surface,
+  },
+  imgui,
+  imgui_glium_renderer::Renderer,
+  mlua::{prelude::*, UserData, UserDataMethods},
+  puffin, puffin_imgui,
+  regex::Regex,
 };
-use imgui_glium_renderer::imgui;
-use mlua::{prelude::*, UserData, UserDataMethods, Value};
-use std::fs;
+
+pub use cam::Camera;
 use world::{EntityRepository, Map, MapData};
 
 #[derive(PartialEq)]
@@ -71,10 +79,9 @@ impl App {
     let texture_repository = texture_sources.load_repository(&self.logger, &gl_context);
 
     self.logger.info("initializing ui".to_string());
-    let mut imgui_ctx = imgui_glium_renderer::imgui::Context::create();
+    let mut imgui_ctx = imgui::Context::create();
     imgui_ctx.set_log_filename(None);
-    let mut imgui_render =
-      imgui_glium_renderer::Renderer::init(&mut imgui_ctx, &gl_context.clone()).unwrap();
+    let mut imgui_render = Renderer::init(&mut imgui_ctx, &gl_context.clone()).unwrap();
     window.setup_imgui(&mut imgui_ctx);
 
     let mut ui_manager = UiManager::new(self.logger.spawn());
@@ -258,7 +265,7 @@ impl App {
 
       let dirs_ptr = dirs.as_ptr();
 
-      let package: mlua::Table = globals.get("package").unwrap();
+      let package: LuaTable = globals.get("package").unwrap();
       let path: String = package.get("path").unwrap();
       let path = format!(
         "{}/?.lua;{}",
@@ -281,7 +288,7 @@ impl App {
           .scripts
           .exclude
           .iter()
-          .any(|reg: &regex::Regex| reg.is_match(&id))
+          .any(|reg: &Regex| reg.is_match(&id))
         {
           continue;
         }

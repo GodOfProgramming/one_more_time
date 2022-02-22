@@ -1,15 +1,8 @@
 [package]
-name = "game"
+name = "main"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-
-# public
-omt = { path = "omt" }
-
-enum-map = "1.1.1"
-strum = "0.22.0"
-strum_macros = "0.22"

@@ -1,6 +1,6 @@
 use common::*;
+use omt::toml::{value::Table, Value};
 use std::{fs, path::Path};
-use toml::{value::Table, Value};
 
 pub mod display;
 pub mod game;
@@ -9,9 +9,11 @@ pub mod scripts;
 
 mod common {
   pub use crate::util::prelude::*;
-  pub use mlua::{Lua, UserData, UserDataFields, UserDataMethods};
+  pub use omt::{
+    mlua::{Lua, UserData, UserDataFields, UserDataMethods},
+    toml::{self, value::Table, Value},
+  };
   pub use std::cell::Cell;
-  pub use toml::{value::Table, Value};
 }
 
 mod keys {

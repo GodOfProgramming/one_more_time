@@ -10,8 +10,6 @@ local Square = class([[Square]], {
   }
 });
 
-
-
 function Square:update(handle)
     if self.count == 0 then
         print("update");

@@ -116,9 +116,8 @@ pub mod string {
 }
 
 pub mod path {
-  use lazy_static::lazy_static;
-  use regex::Regex;
-  use std::path::{Component, Path, PathBuf};
+  use omt::{lazy_static::lazy_static, regex::Regex};
+  use std::path::{Path, PathBuf};
 
   pub fn into_id(path: &Path) -> String {
     let mut path = PathBuf::from(path);
@@ -155,7 +154,7 @@ pub mod path {
 
 pub mod value {
   use super::*;
-  use toml::Value;
+  use omt::toml::Value;
 
   pub fn into_u8(value: &Value) -> ConversionResult<u8> {
     if let Value::Integer(v) = value {

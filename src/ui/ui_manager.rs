@@ -1,7 +1,10 @@
 use super::{common::*, UiComponent, UiComponentPtr, UiTemplate};
 use crate::util::prelude::*;
-use imgui_glium_renderer::imgui::Ui;
-use mlua::{Lua, UserData, UserDataMethods, Value};
+use omt::{
+  imgui_glium_renderer::imgui::Ui,
+  mlua::{Lua, UserData, UserDataMethods},
+  profiling,
+};
 use std::{collections::BTreeMap, path::PathBuf};
 
 pub struct UiManager {

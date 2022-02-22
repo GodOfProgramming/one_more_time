@@ -1,10 +1,8 @@
 use common::*;
-use dyn_clone::DynClone;
-use imgui_glium_renderer::imgui;
-use lazy_static::lazy_static;
-use log::warn;
-use maplit::hashmap;
-use mlua::{Scope, Value};
+use omt::{
+  dyn_clone::{self, DynClone},
+  imgui,
+};
 use std::{
   collections::{BTreeMap, HashMap},
   ops::{Deref, DerefMut},
@@ -29,10 +27,12 @@ pub mod components {
 pub mod common {
   pub use super::{types, SubElementMap, Ui, UiElement, UiElementParent, UiElementPtr};
   pub use crate::{type_map, util::prelude::*};
-  pub use imgui_glium_renderer::imgui::{self, ImStr};
-  pub use lazy_static::lazy_static;
-  pub use maplit::hashmap;
-  pub use mlua::{prelude::*, UserData, UserDataFields, UserDataMetatable, UserDataMethods, Value};
+  pub use omt::{
+    imgui::{self, ImStr},
+    lazy_static::lazy_static,
+    maplit::hashmap,
+    mlua::{self, prelude::*, UserData, UserDataFields, UserDataMetatable, UserDataMethods, Value},
+  };
   pub use std::{collections::BTreeMap, ffi::CString, rc::Rc};
 }
 
@@ -181,7 +181,7 @@ pub fn parse_children<E: UiElementParent>(root: XmlNode) -> Vec<Ui> {
     if let Some(f) = E::valid_children().get(root.name.as_str()) {
       Some(f(root))
     } else {
-      warn!("ui type of '{}' is not valid", root.name);
+      // todo some kind of error here
       None
     }
   };

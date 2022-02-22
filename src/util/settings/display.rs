@@ -1,6 +1,5 @@
 use crate::{math::Dim, util::prelude::*};
-use mlua::{UserData, UserDataMethods};
-use toml::{value::Table, Value};
+use omt::toml::{value::Table, Value};
 
 mod keys {
   pub const TITLE: &str = "title";

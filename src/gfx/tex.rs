@@ -1,8 +1,10 @@
 use crate::util::prelude::*;
-use image::{io::Reader, RgbaImage};
-use imgui_glium_renderer::glium::{
-  backend::Facade,
-  texture::{RawImage2d, SrgbTexture2d},
+use omt::{
+  image::{io::Reader, RgbaImage},
+  imgui_glium_renderer::glium::{
+    backend::Facade,
+    texture::{RawImage2d, SrgbTexture2d},
+  },
 };
 use std::{collections::BTreeMap, path::PathBuf, rc::Rc};
 

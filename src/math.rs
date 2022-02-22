@@ -1,6 +1,6 @@
 use crate::util::prelude::*;
-use mlua::{UserData, UserDataFields};
-pub use nalgebra_glm as glm;
+pub use omt::glm;
+use omt::mlua::{UserData, UserDataFields};
 
 pub mod geom;
 

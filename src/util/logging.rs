@@ -1,8 +1,11 @@
 use crate::util::prelude::*;
-use fern::InitError;
-use log::LevelFilter;
-use log::{debug, error, info, trace, warn};
-use mlua::{UserData, UserDataMethods};
+use omt::{
+  chrono::Local,
+  fern::{self, InitError},
+  log::LevelFilter,
+  log::{debug, error, info, trace, warn},
+  mlua::{UserData, UserDataMethods},
+};
 use std::{
   ffi::OsString,
   fs::{self, OpenOptions},
@@ -75,7 +78,7 @@ impl MainLogger {
         out.finish(format_args!(
           "{}[{}] {}",
           // "{}[{}][{}] {}",
-          chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
+          Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
           // record.target(),
           record.level(),
           msg

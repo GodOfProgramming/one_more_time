@@ -3,6 +3,7 @@ use crate::{
   util::{Dirs, MainLogger, Settings},
 };
 use game::App;
+use omt::puffin;
 use std::{env, path::Path};
 
 mod game;

@@ -1,10 +1,13 @@
 use crate::util::prelude::*;
-use imgui_glium_renderer::glium::{
-  backend::Context,
-  program::{Program, ProgramCreationError},
+use omt::{
+  glium::{
+    backend::Context,
+    program::{Program, ProgramCreationError},
+  },
+  lazy_static::lazy_static,
+  regex::Regex,
+  toml::Value,
 };
-use lazy_static::lazy_static;
-use regex::Regex;
 use std::{
   collections::{BTreeMap, BTreeSet},
   fs,
@@ -12,7 +15,6 @@ use std::{
   path::{Path, PathBuf},
   rc::Rc,
 };
-use toml::Value;
 
 lazy_static! {
   static ref SRC_DIR: PathBuf = PathBuf::new().join("assets").join("shaders");
