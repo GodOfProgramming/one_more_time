@@ -1,28 +1,37 @@
-use super::{common::*, UiComponent, UiComponentPtr, UiTemplate};
+use super::{common::*, UiComponentInstance, UiPtr, UiTemplate};
 use crate::util::prelude::*;
-use omt::{
-  imgui_glium_renderer::imgui::Ui,
-  mlua::{Lua, UserData, UserDataMethods},
-  profiling,
-};
+use omt::{imgui_glium_renderer::imgui::Ui, profiling, ui::UiModel};
 use std::{collections::BTreeMap, path::PathBuf};
 
+#[derive(Default)]
+pub struct UiModelArchive {
+  models: BTreeMap<String, Rc<dyn UiModel>>,
+}
+
+impl UiModelArchive {
+  pub fn lookup(&self, name: &str) -> Option<Rc<dyn UiModel>> {
+    self.models.get(name).cloned()
+  }
+}
+
 pub struct UiManager {
-  templates: BTreeMap<DirID, UiTemplate>,
-  open_ui: BTreeMap<String, UiComponentPtr>,
   logger: ChildLogger,
+  archive: UiModelArchive,
+  templates: BTreeMap<DirID, UiTemplate>,
+  open_ui: BTreeMap<String, UiPtr>,
 }
 
 impl UiManager {
   pub fn new(logger: ChildLogger) -> Self {
     Self {
       logger,
+      archive: Default::default(),
       templates: Default::default(),
       open_ui: Default::default(),
     }
   }
 
-  pub fn load_ui<I>(&mut self, iter: I, lua: &'static Lua)
+  pub fn load_ui<I>(&mut self, iter: I)
   where
     I: Iterator<Item = (PathBuf, DirID)>,
   {
@@ -35,7 +44,7 @@ impl UiManager {
           if let Some(node) = nodes.drain(..).next() {
             self
               .templates
-              .insert(id, UiTemplate::new(node, &self.logger, lua));
+              .insert(id, UiTemplate::new(node, &self.archive, &self.logger));
           } else {
             self.logger.error(format!("xml {:?} was empty", entry));
           }
@@ -53,19 +62,13 @@ impl UiManager {
   }
 
   #[profiling::function]
-  pub fn update(
-    &mut self,
-    logger: &dyn Logger,
-    ui: &Ui<'_>,
-    lua: &'static Lua,
-    settings: &Settings,
-  ) {
+  pub fn update(&mut self, logger: &dyn Logger, ui: &Ui<'_>, settings: &Settings) {
     for element in self.open_ui.values_mut() {
-      element.component().update(logger, ui, lua, settings);
+      element.update(logger, ui, settings);
     }
   }
 
-  pub fn open(&mut self, id: &str, name: &str) -> Option<MutPtr<UiComponent>> {
+  pub fn open(&mut self, id: &str, name: &str) -> Option<MutPtr<UiComponentInstance>> {
     if let Some(tmpl) = self.templates.get(&DirID::from(id)) {
       let mut component = tmpl.create_component(&self.logger);
       let ptr = component.as_ptr_mut();
@@ -76,7 +79,7 @@ impl UiManager {
     }
   }
 
-  pub fn get(&mut self, name: &str) -> Option<MutPtr<UiComponent>> {
+  pub fn get(&mut self, name: &str) -> Option<MutPtr<UiComponentInstance>> {
     self.open_ui.get_mut(name).map(|c| c.as_ptr_mut())
   }
 
@@ -92,25 +95,3 @@ impl UiManager {
 }
 
 impl AsPtr for UiManager {}
-
-impl UserData for MutPtr<UiManager> {
-  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-    methods.add_method_mut("open", |_, this, (id, name): (String, String)| {
-      if let Some(ptr) = this.open(&id, &name) {
-        Ok(Some(ptr))
-      } else {
-        Ok(None)
-      }
-    });
-
-    methods.add_method_mut("get", |_, this, name: String| {
-      if let Some(ptr) = this.get(&name) {
-        Ok(Some(ptr))
-      } else {
-        Ok(None)
-      }
-    });
-
-    methods.add_method("list", |_, this, _: ()| Ok(this.list()))
-  }
-}

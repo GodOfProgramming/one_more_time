@@ -6,7 +6,7 @@ pub struct Window {
   title: CString,
   transparent: bool,
   decorated: bool,
-  children: Vec<Ui>,
+  children: Vec<UiComponentPtr>,
 }
 
 impl Window {
@@ -50,33 +50,34 @@ impl UiElement for Window {
     self.id.clone()
   }
 
-  fn set_attrib(&mut self, attrib: String, value: Value) {
+  fn set_attrib(&mut self, attrib: String, value: UiAttributeValue) {
     match attrib.as_str() {
       "title" => {
-        if let Value::String(s) = value {
-          self.title = string::into_cstring(s.to_str().unwrap());
+        if let UiAttributeValue::String(s) = value {
+          self.title = string::into_cstring(s.as_str());
         }
       }
       "transparent" => {
-        if let Value::Boolean(b) = value {
+        if let UiAttributeValue::Bool(b) = value {
           self.transparent = b;
         }
       }
       "decorated" => {
-        if let Value::Boolean(b) = value {
+        if let UiAttributeValue::Bool(b) = value {
           self.decorated = b;
         }
       }
       _ => (),
     }
   }
+}
 
+impl UiComponent for Window {
   fn update(
     &mut self,
     logger: &dyn Logger,
     ui: &imgui::Ui<'_>,
-    class: &LuaValue,
-    instance: &LuaValue,
+    instance: &mut dyn UiModelInstance,
     settings: &Settings,
   ) {
     let im_str = unsafe { ImStr::from_cstr_unchecked(&self.title) };
@@ -87,13 +88,20 @@ impl UiElement for Window {
       .bg_alpha(if self.transparent { 0.0 } else { 1.0 })
       .build(ui, || {
         for child in children.iter_mut() {
-          child.update(logger, ui, class, instance, settings);
+          child.borrow_mut().update(logger, ui, instance, settings);
         }
       });
   }
 
-  fn dupe(&self) -> UiElementPtr {
-    Box::new(self.clone())
+  fn clone_ui(&self, id_map: &mut BTreeMap<String, UiElementPtr>) -> UiComponentPtr {
+    let ui = Rc::new(RefCell::new(self.clone()));
+    let ptr: Rc<RefCell<dyn UiElement>> = ui.clone();
+
+    if let Some(id) = self.id() {
+      id_map.insert(id, ptr);
+    }
+
+    ui
   }
 }
 
@@ -109,8 +117,10 @@ impl UiElementParent for Window {
   }
 }
 
-impl From<Window> for Ui {
+impl From<Window> for UiComponentPtr {
   fn from(ui: Window) -> Self {
-    Ui(Box::new(ui))
+    Rc::new(RefCell::new(ui))
   }
 }
+
+impl AsPtr for Window {}

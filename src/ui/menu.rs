@@ -4,7 +4,7 @@ use super::common::*;
 pub struct Menu {
   id: Option<String>,
   name: CString,
-  children: Vec<Ui>,
+  children: Vec<UiComponentPtr>,
 }
 
 impl Menu {
@@ -33,26 +33,38 @@ impl UiElement for Menu {
     self.id.clone()
   }
 
+  fn set_attrib(&mut self, _: String, _: UiAttributeValue) {
+    // do nothing for now
+  }
+}
+
+impl UiComponent for Menu {
   fn update(
     &mut self,
     logger: &dyn Logger,
     ui: &imgui::Ui<'_>,
-    class: &LuaValue,
-    instance: &LuaValue,
+    instance: &mut dyn UiModelInstance,
     settings: &Settings,
   ) {
     let im_str = unsafe { ImStr::from_cstr_unchecked(&self.name) };
     let children = &mut self.children;
     if let Some(menu) = ui.begin_menu(im_str) {
       for child in children.iter_mut() {
-        child.update(logger, ui, class, instance, settings);
+        child.borrow_mut().update(logger, ui, instance, settings);
       }
       menu.end();
     }
   }
 
-  fn dupe(&self) -> UiElementPtr {
-    Box::new(self.clone())
+  fn clone_ui(&self, id_map: &mut BTreeMap<String, UiElementPtr>) -> UiComponentPtr {
+    let ui = Rc::new(RefCell::new(self.clone()));
+    let ptr: Rc<RefCell<dyn UiElement>> = ui.clone();
+
+    if let Some(id) = self.id() {
+      id_map.insert(id, ptr);
+    }
+
+    ui
   }
 }
 
@@ -67,8 +79,8 @@ impl UiElementParent for Menu {
   }
 }
 
-impl From<Menu> for Ui {
+impl From<Menu> for UiComponentPtr {
   fn from(ui: Menu) -> Self {
-    Ui(Box::new(ui))
+    Rc::new(RefCell::new(ui))
   }
 }

@@ -7,9 +7,9 @@ pub use glfw;
 pub use image;
 pub use imgui_glium_renderer::{self, glium, imgui};
 pub use lazy_static;
+pub use libloading;
 pub use log;
 pub use maplit;
-pub use mlua;
 pub use nalgebra_glm as glm;
 pub use ncollide2d;
 pub use profiling;
@@ -21,3 +21,15 @@ pub use toml;
 pub use uid;
 pub use walkdir;
 pub use xml;
+
+pub mod core;
+pub mod ui;
+pub mod util;
+
+pub struct Plugin;
+
+pub enum PluginLoadError {
+  GeneralFailure(String),
+}
+
+pub type PluginResult = Result<Plugin, PluginLoadError>;

@@ -1,5 +1,4 @@
-<root>
-  <model class="ui.MainMenuBar" />
+<debug-menu>
   <main-menu-bar>
     <menu name="Game">
       <menu-item name="Show/Hide Profiler" click="show_or_hide_profiler"></menu-item>
@@ -13,4 +12,4 @@
       <menu-item name="Test" click="test"></menu-item>
     </menu>
   </main-menu-bar>
-</root>
+</debug-menu>

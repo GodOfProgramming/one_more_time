@@ -53,13 +53,3 @@ impl Into<Table> for Settings {
 }
 
 impl AsPtr for Settings {}
-
-impl UserData for MutPtr<Settings> {
-  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-    methods.add_method("fps", |_, this, _: ()| Ok(this.fps));
-    methods.add_method_mut("set_fps", |_, this, fps: u8| {
-      this.fps = fps;
-      Ok(())
-    });
-  }
-}

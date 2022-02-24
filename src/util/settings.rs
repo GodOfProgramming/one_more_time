@@ -9,10 +9,7 @@ pub mod scripts;
 
 mod common {
   pub use crate::util::prelude::*;
-  pub use omt::{
-    mlua::{Lua, UserData, UserDataFields, UserDataMethods},
-    toml::{self, value::Table, Value},
-  };
+  pub use omt::toml::{self, value::Table, Value};
   pub use std::cell::Cell;
 }
 
@@ -92,11 +89,3 @@ impl Settings {
 }
 
 impl AsPtr for Settings {}
-
-impl UserData for MutPtr<Settings> {
-  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-    methods.add_method_mut("display", |_, this, _: ()| Ok(this.display.as_ptr_mut()));
-    methods.add_method_mut("graphics", |_, this, _: ()| Ok(this.graphics.as_ptr_mut()));
-    methods.add_method_mut("game", |_, this, _: ()| Ok(this.game.as_ptr_mut()));
-  }
-}

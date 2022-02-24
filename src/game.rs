@@ -1,7 +1,7 @@
 mod cam;
 mod world;
 
-use std::fs;
+use std::{fs, path::PathBuf};
 
 use crate::{
   gfx::*,
@@ -24,13 +24,12 @@ use omt::{
   },
   imgui,
   imgui_glium_renderer::Renderer,
-  mlua::{prelude::*, UserData, UserDataMethods},
   puffin, puffin_imgui,
   regex::Regex,
 };
 
 pub use cam::Camera;
-use world::{EntityRepository, Map, MapData};
+use world::{EntityArchive, Map, MapData};
 
 #[derive(PartialEq)]
 enum State {
@@ -60,12 +59,7 @@ impl App {
     let gl_context = unsafe { Context::new(draw_interface, false, behavior).unwrap() };
 
     self.logger.info("initializing shaders".to_string());
-    let mut shaders = ShaderSources::new();
-    shaders.load_all(
-      &self.logger,
-      RecursiveDirIteratorWithID::from(&dirs.assets.cfg.shaders),
-    );
-    let shader_repository = shaders.load_repository(&gl_context, &self.logger);
+    let mut shader_archive = ShaderProgramArchive::default();
 
     self.logger.info("initializing models".to_string());
     let model_repository = ModelRepository::new(&gl_context);
@@ -87,18 +81,12 @@ impl App {
     let mut ui_manager = UiManager::new(self.logger.spawn());
 
     self.logger.info("initializing entities".to_string());
-    let entity_repository = EntityRepository::new(
-      self.logger.spawn(),
-      RecursiveDirIteratorWithID::from(&dirs.assets.cfg.entities),
-    );
+    let entity_repository = EntityArchive::new(self.logger.spawn());
 
     let mut fps_manager = FpsManager::new(settings.graphics.fps.into());
 
-    self.logger.info("initializing lua".to_string());
-    let lua = self.initialize_lua(dirs, settings, &mut ui_manager);
-
     self.logger.info("loading ui".to_string());
-    ui_manager.load_ui(RecursiveDirIteratorWithID::from(&dirs.assets.ui), lua);
+    ui_manager.load_ui(RecursiveDirIteratorWithID::from(&dirs.assets.ui));
 
     if cfg!(debug_assertions) {
       self.logger.info("opening debug menu".to_string());
@@ -115,14 +103,11 @@ impl App {
     let mut map = Map::new(
       map_data,
       self.logger.spawn(),
-      lua,
       entity_repository.as_ptr(),
-      shader_repository.as_ptr(),
+      shader_archive.as_ptr(),
       model_repository.as_ptr(),
       texture_repository.as_ptr(),
     );
-
-    map.register_to_lua(lua);
 
     self.logger.info("spawning test character".to_string());
     map.spawn("characters.test.square");
@@ -154,7 +139,7 @@ impl App {
 
       // game logic
 
-      map.update(&self.logger);
+      map.update();
 
       camera.update(settings);
 
@@ -186,7 +171,7 @@ impl App {
 
       let ui: imgui::Ui<'_> = imgui_ctx.frame();
 
-      ui_manager.update(&self.logger, &ui, lua, settings);
+      ui_manager.update(&self.logger, &ui, settings);
 
       if settings.game.show_profiler {
         puffin_ui.window(&ui);
@@ -252,64 +237,30 @@ impl App {
     }
   }
 
-  fn initialize_lua(
-    &mut self,
-    dirs: &Dirs,
-    settings: &mut Settings,
-    ui_manager: &mut UiManager,
-  ) -> &'static Lua {
-    let lua = Lua::new();
+  fn load_plugins(&self) {
+    let version: &str = env!("CARGO_PKG_VERSION");
 
-    {
-      let globals = lua.globals();
+    let plugin_dir = PathBuf::from("plugins");
 
-      let dirs_ptr = dirs.as_ptr();
-
-      let package: LuaTable = globals.get("package").unwrap();
-      let path: String = package.get("path").unwrap();
-      let path = format!(
-        "{}/?.lua;{}",
-        dirs_ptr.assets.scripts.to_str().unwrap(),
-        path
-      );
-      package.set("path", path).unwrap();
-
-      let logger_ptr = self.logger.as_ptr();
-      let app_ptr = self.as_ptr_mut();
-      let settings_ptr = settings.as_ptr_mut();
-      let ui_manager_ptr = ui_manager.as_ptr_mut();
-      let _ = globals.set("App", app_ptr);
-      let _ = globals.set("Logger", logger_ptr);
-      let _ = globals.set("Settings", settings_ptr);
-      let _ = globals.set("UiManager", ui_manager_ptr);
-
-      for (file, id) in RecursiveDirIteratorWithID::from(&dirs.assets.scripts) {
-        if settings
-          .scripts
-          .exclude
-          .iter()
-          .any(|reg: &Regex| reg.is_match(&id))
-        {
-          continue;
-        }
-
-        if let Ok(src) = fs::read_to_string(file) {
-          lua.load(&src).exec().unwrap();
+    if let Ok(entries) = fs::read_dir(&plugin_dir) {
+      for entry in entries.flatten() {
+        if let Ok(meta) = entry.metadata() {
+          if meta.is_dir() {
+            let plugin_dir = plugin_dir.join(entry.path()).join(version);
+            if let Ok(entries) = fs::read_dir(&plugin_dir) {
+              for entry in entries.flatten() {
+                if let Err(err) = Lib::load_lib(&entry.path(), |_| Ok(())) {
+                  self
+                    .logger
+                    .error(format!("error loading {:?}: {}", entry, err));
+                }
+              }
+            }
+          }
         }
       }
     }
-
-    lua.into_static()
   }
 }
 
 impl AsPtr for App {}
-
-impl UserData for MutPtr<App> {
-  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-    methods.add_method_mut("request_exit", |_, this, _: ()| {
-      this.state = State::Exiting;
-      Ok(())
-    });
-  }
-}

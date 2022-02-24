@@ -1,20 +1,20 @@
 use common::*;
-use omt::{
+pub use omt::{
   dyn_clone::{self, DynClone},
   imgui,
+  ui::{Document, StaticUi, UiElement, UiModel, UiModelInstance},
 };
-use std::{
-  collections::{BTreeMap, HashMap},
-  ops::{Deref, DerefMut},
-};
+use std::collections::{BTreeMap, HashMap};
 
-pub use ui_manager::UiManager;
+pub use ui_manager::{UiManager, UiModelArchive};
 pub mod main_menu_bar;
 pub mod menu;
 pub mod menu_item;
 pub mod text_box;
 pub mod ui_manager;
 pub mod window;
+
+/* ----------------------------- Utility ----------------------------- */
 
 pub mod components {
   pub use super::main_menu_bar::*;
@@ -25,39 +25,41 @@ pub mod components {
 }
 
 pub mod common {
-  pub use super::{types, SubElementMap, Ui, UiElement, UiElementParent, UiElementPtr};
+  pub use super::{
+    types, SubElementMap, UiComponent, UiComponentPtr, UiElementParent, UiElementPtr,
+  };
   pub use crate::{type_map, util::prelude::*};
   pub use omt::{
     imgui::{self, ImStr},
     lazy_static::lazy_static,
     maplit::hashmap,
-    mlua::{self, prelude::*, UserData, UserDataFields, UserDataMetatable, UserDataMethods, Value},
+    ui::{UiAttributeValue, UiElement, UiModelInstance},
   };
-  pub use std::{collections::BTreeMap, ffi::CString, rc::Rc};
+  pub use std::{cell::RefCell, collections::BTreeMap, ffi::CString, rc::Rc};
 }
 
 pub mod types {
-  use super::{components::*, SubElementCreator, Ui, XmlNode};
+  use super::{components::*, SubElementCreator, UiComponentPtr, XmlNode};
 
   type UiComponentKvp = (&'static str, SubElementCreator);
 
-  fn create_window(root: XmlNode) -> Ui {
+  fn create_window(root: XmlNode) -> UiComponentPtr {
     Window::new(root).into()
   }
 
-  fn create_textbox(root: XmlNode) -> Ui {
+  fn create_textbox(root: XmlNode) -> UiComponentPtr {
     TextBox::new(root).into()
   }
 
-  fn create_main_menu_bar(root: XmlNode) -> Ui {
+  fn create_main_menu_bar(root: XmlNode) -> UiComponentPtr {
     MainMenuBar::new(root).into()
   }
 
-  fn create_menu(root: XmlNode) -> Ui {
+  fn create_menu(root: XmlNode) -> UiComponentPtr {
     Menu::new(root).into()
   }
 
-  fn create_menu_item(root: XmlNode) -> Ui {
+  fn create_menu_item(root: XmlNode) -> UiComponentPtr {
     MenuItem::new(root).into()
   }
 
@@ -79,105 +81,15 @@ macro_rules! type_map {
     };
   }
 
-pub type SubElementCreator = fn(XmlNode) -> Ui;
+pub type SubElementCreator = fn(XmlNode) -> UiComponentPtr;
 pub type SubElementMap = HashMap<&'static str, SubElementCreator>;
-pub type UiElementPtr = Box<dyn UiElement>;
-
-pub trait UiElement: DynClone {
-  fn kind(&self) -> String;
-
-  fn id(&self) -> Option<String>;
-
-  fn set_attrib(&mut self, _attrib: String, _value: Value) {
-    panic!("'set_attrib' not implemented")
-  }
-
-  fn update(
-    &mut self,
-    _logger: &dyn Logger,
-    _ui: &imgui::Ui<'_>,
-    _class: &LuaValue,
-    _instance: &LuaValue,
-    _settings: &Settings,
-  ) {
-    panic!("'update' not implemented");
-  }
-
-  fn dupe(&self) -> UiElementPtr;
-
-  fn clone_ui(&self, id_map: &mut BTreeMap<String, Ui>) -> Ui {
-    let ui = Ui(self.dupe());
-
-    if let Some(id) = self.id() {
-      id_map.insert(id, ui.clone());
-    }
-
-    ui
-  }
-}
-
-dyn_clone::clone_trait_object!(UiElement);
 
 pub trait UiElementParent {
   fn valid_children() -> &'static SubElementMap;
 }
 
-#[derive(Clone)]
-pub struct Ui(UiElementPtr);
-
-impl Ui {
-  fn el(&self) -> &dyn UiElement {
-    self.0.as_ref()
-  }
-
-  fn el_mut(&mut self) -> &mut dyn UiElement {
-    self.0.as_mut()
-  }
-}
-
-impl UiElement for Ui {
-  fn kind(&self) -> String {
-    self.el().kind()
-  }
-
-  fn id(&self) -> Option<String> {
-    self.el().id()
-  }
-
-  fn set_attrib(&mut self, attrib: String, value: Value) {
-    self.el_mut().set_attrib(attrib, value);
-  }
-
-  fn update(
-    &mut self,
-    logger: &dyn Logger,
-    ui: &imgui::Ui<'_>,
-    class: &LuaValue,
-    instance: &LuaValue,
-    settings: &Settings,
-  ) {
-    self.el_mut().update(logger, ui, class, instance, settings);
-  }
-
-  fn dupe(&self) -> UiElementPtr {
-    self.el().dupe()
-  }
-}
-
-impl AsPtr for Ui {}
-
-impl UserData for MutPtr<Ui> {
-  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-    methods.add_method_mut("kind", |_, this, _: ()| Ok(this.kind()));
-    methods.add_method_mut("set_attrib", |_, this, (name, value): (String, Value)| {
-      this.set_attrib(name, value);
-      Ok(())
-    });
-  }
-}
-
-pub fn parse_children<E: UiElementParent>(root: XmlNode) -> Vec<Ui> {
-  let parse_child = |root: XmlNode| -> Option<Ui> {
+pub fn parse_children<E: UiElementParent>(root: XmlNode) -> Vec<UiComponentPtr> {
+  let parse_child = |root: XmlNode| -> Option<UiComponentPtr> {
     if let Some(f) = E::valid_children().get(root.name.as_str()) {
       Some(f(root))
     } else {
@@ -197,63 +109,47 @@ pub fn parse_children<E: UiElementParent>(root: XmlNode) -> Vec<Ui> {
   children
 }
 
+/* ---------------------------------------------------------------------------------------- */
+
+/* Template */
+
 pub struct UiTemplate {
-  el: Ui,
-  class: LuaValue<'static>,
+  base_component: UiComponentPtr,
+  model: Rc<dyn UiModel>,
 }
 
 impl Default for UiTemplate {
   fn default() -> Self {
     Self {
-      el: EmptyUi::default().into(),
-      class: LuaValue::Nil,
+      base_component: EmptyUi::default().into(),
+      model: Rc::new(StaticUi),
     }
   }
 }
 
 impl UiTemplate {
-  pub fn new<L: Logger>(node: XmlNode, logger: &L, lua: &'static Lua) -> Self {
+  pub fn new<L: Logger>(node: XmlNode, models: &UiModelArchive, logger: &L) -> Self {
     let mut root = UiTemplate::default();
-
-    for node in node.children {
-      if node.name == "model" {
-        if let Some(class_name) = node.attribs.get("class") {
-          match script::resolve(lua, class_name) {
-            Ok(class) => root.class = class,
-            Err(err) => logger.error(format!("cannot find class '{}': {}", class_name, err)),
-          }
+    if let Some(model) = models.lookup(&node.name) {
+      root.model = model.clone();
+      for node in node.children {
+        if let Some(f) = Self::valid_children().get(node.name.as_str()) {
+          root.base_component = f(node);
         } else {
-          logger.error("model tag without class name found".to_string());
+          logger.error(format!("ui type of '{}' is not valid", node.name));
         }
-      } else if let Some(f) = Self::valid_children().get(node.name.as_str()) {
-        root.el = f(node);
-      } else {
-        logger.error(format!("ui type of '{}' is not valid", node.name));
       }
     }
 
     root
   }
 
-  pub fn create_component<L: Logger>(&self, logger: &L) -> UiComponentPtr {
+  pub fn create_component<L: Logger>(&self, logger: &L) -> UiPtr {
     let mut id_map = BTreeMap::new();
-    let el = self.el.clone_ui(&mut id_map);
-
-    let (class, instance) = if let LuaValue::Table(class) = &self.class {
-      match class.call_function("new", class.clone()) {
-        Ok(instance) => (LuaValue::Table(class.clone()), LuaValue::Table(instance)),
-        Err(err) => {
-          logger.error(format!("constructor failed: {}", err));
-          (LuaValue::Table(class.clone()), LuaValue::Nil)
-        }
-      }
-    } else {
-      (LuaValue::Nil, LuaValue::Nil)
-    };
-
-    let component = UiComponent::new(el, class, instance, id_map);
-
-    UiComponentPtr::new(component)
+    let el = self.base_component.borrow().clone_ui(&mut id_map);
+    let instance = self.model.new_instance().unwrap();
+    let component = UiComponentInstance::new(el, instance, id_map);
+    Box::new(component)
   }
 }
 
@@ -269,97 +165,67 @@ impl UiElementParent for UiTemplate {
   }
 }
 
-pub struct UiComponent {
-  el: Ui,
-  class: LuaValue<'static>,
-  instance: LuaValue<'static>,
-  element_mapping: BTreeMap<String, Ui>,
+/* Component */
+
+pub type UiElementPtr = Rc<RefCell<dyn UiElement>>;
+pub type UiComponentPtr = Rc<RefCell<dyn UiComponent>>;
+
+pub trait UiComponent: DynClone + UiElement {
+  fn update(
+    &mut self,
+    _logger: &dyn Logger,
+    _ui: &imgui::Ui<'_>,
+    _instance: &mut dyn UiModelInstance,
+    _settings: &Settings,
+  ) {
+    panic!("'update' not implemented");
+  }
+
+  fn clone_ui(&self, id_map: &mut BTreeMap<String, UiElementPtr>) -> UiComponentPtr;
 }
 
-impl UiComponent {
+dyn_clone::clone_trait_object!(UiComponent);
+
+/* Instance */
+
+pub type UiPtr = Box<UiComponentInstance>;
+
+pub struct UiComponentInstance {
+  el: UiComponentPtr,
+  instance: Box<dyn UiModelInstance>,
+  element_id_mapping: BTreeMap<String, UiElementPtr>,
+}
+
+impl UiComponentInstance {
   fn new(
-    el: Ui,
-    class: LuaValue<'static>,
-    instance: LuaValue<'static>,
-    element_mapping: BTreeMap<String, Ui>,
+    el: UiComponentPtr,
+    instance: Box<dyn UiModelInstance>,
+    element_id_mapping: BTreeMap<String, UiElementPtr>,
   ) -> Self {
     Self {
       el,
-      class,
       instance,
-      element_mapping,
+      element_id_mapping,
     }
   }
 
-  fn update(
-    &mut self,
-    logger: &dyn Logger,
-    ui: &imgui::Ui<'_>,
-    lua: &'static Lua,
-    settings: &Settings,
-  ) {
-    let ptr = self.as_ptr_mut();
-    let res: mlua::Result<()> = lua.scope(|scope: &mlua::Scope| {
-      let ptr = scope.create_userdata(ptr).unwrap();
-      let globals = lua.globals();
-      let _ = globals.set("document", ptr);
-
-      self
-        .el
-        .update(logger, ui, &self.class, &self.instance, settings);
-
-      globals.set("document", LuaValue::Nil).unwrap();
-      Ok(())
-    });
-
-    if let Err(e) = res {
-      logger.error(e.to_string());
-    }
-  }
-
-  fn get_element_by_id(&mut self, id: &str) -> Option<MutPtr<Ui>> {
-    self.element_mapping.get_mut(id).map(|ui| ui.as_ptr_mut())
+  fn update(&mut self, logger: &dyn Logger, ui: &imgui::Ui<'_>, settings: &Settings) {
+    self
+      .el
+      .borrow_mut()
+      .update(logger, ui, self.instance.as_mut(), settings);
   }
 }
 
-impl AsPtr for UiComponent {}
-
-impl UserData for MutPtr<UiComponent> {
-  fn add_fields<'lua, F: UserDataFields<'lua, Self>>(fields: &mut F) {
-    fields.add_field_method_get("data", |_, this| Ok(this.instance.clone()));
-  }
-
-  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-    methods.add_method_mut("get_element_by_id", |_, this, id: String| {
-      Ok(this.get_element_by_id(&id))
-    });
+impl Document for UiComponentInstance {
+  fn get_element_by_id(&mut self, id: &str) -> Option<Rc<RefCell<dyn UiElement>>> {
+    self.element_id_mapping.get_mut(id).cloned()
   }
 }
 
-pub struct UiComponentPtr(Box<UiComponent>);
+impl AsPtr for UiComponentInstance {}
 
-impl UiComponentPtr {
-  pub fn new(ui: UiComponent) -> Self {
-    Self(Box::new(ui))
-  }
-
-  pub fn component(&mut self) -> &mut UiComponent {
-    self.0.as_mut()
-  }
-}
-
-impl Deref for UiComponentPtr {
-  type Target = UiComponent;
-  fn deref(&self) -> &Self::Target {
-    self.0.as_ref()
-  }
-}
-
-impl DerefMut for UiComponentPtr {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    self.0.as_mut()
-  }
-}
+/* Empty */
 
 #[derive(Default, Clone)]
 struct EmptyUi;
@@ -373,13 +239,17 @@ impl UiElement for EmptyUi {
     None
   }
 
-  fn dupe(&self) -> UiElementPtr {
-    Box::new(EmptyUi)
+  fn set_attrib(&mut self, _attrib: String, _value: UiAttributeValue) {}
+}
+
+impl UiComponent for EmptyUi {
+  fn clone_ui(&self, id_map: &mut BTreeMap<String, UiElementPtr>) -> UiComponentPtr {
+    panic!("getting here is a logic error");
   }
 }
 
-impl From<EmptyUi> for Ui {
-  fn from(ui: EmptyUi) -> Self {
-    Ui(Box::new(ui))
+impl Into<UiComponentPtr> for EmptyUi {
+  fn into(self) -> UiComponentPtr {
+    Rc::new(RefCell::new(self))
   }
 }

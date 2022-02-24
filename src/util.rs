@@ -1,22 +1,21 @@
 pub use self::{
   convert::*,
+  external::Lib,
   fps::FpsManager,
   io::{DirID, Dirs, RecursiveDirIterator, RecursiveDirIteratorWithID},
   logging::{ChildLogger, Logger, MainLogger, SpawnableLogger},
-  ptr::{AsPtr, ConstPtr, MutPtr},
-  script::*,
+  ptr::*,
   settings::Settings,
   xml::XmlNode,
 };
-use omt::mlua;
 use std::fmt::{Display, Error, Formatter};
 
 pub mod convert;
+mod external;
 mod fps;
 mod io;
 mod logging;
-pub mod ptr;
-pub mod script;
+mod ptr;
 mod settings;
 mod xml;
 
@@ -27,14 +26,12 @@ pub mod prelude {
 #[derive(Debug)]
 pub enum GameError {
   Simple(String),
-  Lua(mlua::Error),
 }
 
 impl Display for GameError {
   fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
     match self {
       GameError::Simple(msg) => write!(f, "{}", msg),
-      GameError::Lua(err) => write!(f, "{}", err),
     }
   }
 }

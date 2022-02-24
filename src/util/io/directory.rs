@@ -1,4 +1,4 @@
-use crate::util::ptr::prelude::*;
+use crate::util::prelude::*;
 use std::{
   ffi::{OsStr, OsString},
   fmt::Display,

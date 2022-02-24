@@ -18,6 +18,7 @@ ncollide2d = "0.32.0"
 
 # scripts
 mlua = { version = "0.7.3", features = ["lua54", "vendored"] }
+libloading = "0.7.3"
 
 # data
 toml = "0.5.8"

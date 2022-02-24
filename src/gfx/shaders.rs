@@ -1,5 +1,6 @@
 use crate::util::prelude::*;
 use omt::{
+  core::{ShaderLoader, ShaderSource},
   glium::{
     backend::Context,
     program::{Program, ProgramCreationError},
@@ -17,18 +18,123 @@ use std::{
 };
 
 lazy_static! {
-  static ref SRC_DIR: PathBuf = PathBuf::new().join("assets").join("shaders");
   static ref IMPORT_REGEX: Regex =
     Regex::new(r##"^\s*#\s*import\s*"(?P<file>[\-\w.]+)"\s*$"##).unwrap();
 }
 
-#[derive(Debug)]
-struct ShaderSource {
-  out: PathBuf,
-  sources: BTreeSet<PathBuf>,
+#[derive(Default)]
+pub struct ShaderSourceArchive {
+  relative_path: PathBuf,
+  sources: BTreeMap<String, ShaderSource>,
 }
 
-impl ShaderSource {
+impl ShaderSourceArchive {
+  pub fn new(relative_path: PathBuf) -> Self {
+    Self {
+      relative_path,
+      sources: Default::default(),
+    }
+  }
+}
+
+impl ShaderLoader for ShaderSourceArchive {
+  fn register(&mut self, id: &str, src: ShaderSource) {
+    self.sources.insert(id.to_string(), src);
+  }
+}
+
+struct ProgramSource {
+  vertex: String,
+  fragment: String,
+}
+
+pub struct Shader {
+  program: Program,
+}
+
+impl Shader {
+  fn from(ctx: Rc<Context>, sources: ProgramSource) -> Result<Self, ProgramCreationError> {
+    let program = Program::from_source(&ctx, &sources.vertex, &sources.fragment, None)?;
+
+    Ok(Self { program })
+  }
+}
+
+impl Deref for Shader {
+  type Target = Program;
+  fn deref(&self) -> &Self::Target {
+    &self.program
+  }
+}
+
+#[derive(Default)]
+pub struct ShaderProgramArchive {
+  shaders: BTreeMap<String, Rc<Shader>>,
+}
+
+impl ShaderProgramArchive {
+  pub fn add_source_archive<L: Logger>(
+    &mut self,
+    logger: &L,
+    archive: ShaderSourceArchive,
+    ctx: Rc<Context>,
+  ) {
+    let load_source = |file: &Path| {
+      let src_path = archive.relative_path.join(file);
+
+      Self::load_source(
+        logger,
+        &src_path,
+        &mut Vec::default(),
+        &mut BTreeSet::default(),
+      )
+    };
+
+    for (id, source) in archive.sources {
+      match load_source(&source.vertex) {
+        Ok(vertex) => match load_source(&source.fragment) {
+          Ok(fragment) => {
+            let sources = ProgramSource { vertex, fragment };
+            match Shader::from(ctx.clone(), sources) {
+              Ok(shader) => {
+                self.shaders.insert(id, Rc::new(shader));
+              }
+              Err(err) => {
+                logger.error(format!("failed to load shader: {}", err));
+              }
+            }
+          }
+          Err(err) => {
+            logger.error(format!(
+              "failed to load fragment shader for program {}: {}",
+              id, err
+            ));
+          }
+        },
+        Err(err) => {
+          logger.error(format!(
+            "failed to load vertex shader for program {}: {}",
+            id, err
+          ));
+        }
+      }
+    }
+  }
+
+  pub fn get(&self, id: &str) -> Option<Rc<Shader>> {
+    self.shaders.get(id).cloned()
+  }
+
+  pub fn list(&self) -> Vec<String> {
+    let mut ret = Vec::default();
+
+    for id in self.shaders.keys() {
+      ret.push(id.clone());
+    }
+
+    ret
+  }
+
   fn load_source<L: Logger>(
     logger: &L,
     shader_path: &Path,
@@ -39,9 +145,10 @@ impl ShaderSource {
     base_path.pop();
 
     let source_code = fs::read_to_string(shader_path).unwrap();
-    let shader_str = shader_path.display();
+    let shader_str = shader_path.to_str().unwrap();
 
-    imported_files.push(format!("{}", shader_str));
+    // don't import self
+    imported_files.push(shader_str.to_string());
 
     let mut lines = Vec::new();
 
@@ -58,12 +165,15 @@ impl ShaderSource {
         }
 
         if successful_imports.contains(&import_str) {
-          logger.warn(format!("already imported '{}', skipping", import_str));
+          logger.debug(format!("already imported '{}', skipping", import_str));
           continue;
         }
 
         let import_source = Self::load_source(logger, &import, imported_files, successful_imports)?;
+
+        // replace import line with import source
         lines.push(import_source);
+
         successful_imports.insert(import_str);
       } else {
         lines.push(line.to_string());
@@ -78,159 +188,4 @@ impl ShaderSource {
   }
 }
 
-#[derive(Default)]
-pub struct ProgramSources {
-  vertex: String,
-  fragment: String,
-}
-
-impl From<PotentialProgramSources> for ProgramSources {
-  fn from(sources: PotentialProgramSources) -> Self {
-    Self {
-      vertex: sources.vertex.unwrap(),
-      fragment: sources.fragment.unwrap(),
-    }
-  }
-}
-
-#[derive(Default)]
-struct PotentialProgramSources {
-  vertex: Option<String>,
-  fragment: Option<String>,
-}
-
-impl PotentialProgramSources {
-  fn is_valid(&self) -> bool {
-    self.vertex.is_some() && self.fragment.is_some()
-  }
-}
-
-pub struct ShaderSources {
-  sources: BTreeMap<DirID, ProgramSources>,
-}
-
-impl ShaderSources {
-  pub fn new() -> Self {
-    Self {
-      sources: BTreeMap::default(),
-    }
-  }
-
-  pub fn load_all<L, I>(&mut self, logger: &L, iter: I)
-  where
-    L: Logger,
-    I: Iterator<Item = (PathBuf, DirID)>,
-  {
-    for (path, id) in iter {
-      let data = fs::read_to_string(&path)
-        .map_err(|e| format!("cannot find {:?}, err = {}", path, e))
-        .unwrap();
-      let table = data.parse::<Value>().unwrap();
-      let table = table.as_table().unwrap();
-
-      for (local_shader_id, shaders) in table {
-        let new_id = id.extend(&local_shader_id);
-        let shaders = shaders.as_table().unwrap();
-
-        let mut sources = PotentialProgramSources::default();
-
-        for (shader_type, filename) in shaders {
-          let current_source = match shader_type.as_str() {
-            "vertex" => &mut sources.vertex,
-            "fragment" => &mut sources.fragment,
-            invalid => {
-              logger.warn(format!("unsupported shader type: {}", invalid));
-              continue;
-            }
-          };
-
-          if let Value::String(filename) = filename {
-            let src_path = SRC_DIR.join(Path::new(filename));
-            match ShaderSource::load_source(
-              logger,
-              &src_path,
-              &mut Vec::default(),
-              &mut BTreeSet::default(),
-            ) {
-              Ok(source) => {
-                *current_source = Some(source);
-              }
-              Err(msg) => {
-                logger.error(msg.to_string());
-                continue;
-              }
-            }
-          } else {
-            logger.error("shader path is not a string".to_string());
-            continue;
-          }
-        }
-
-        if sources.is_valid() {
-          self.sources.insert(new_id, sources.into());
-        } else {
-          logger.error("required shader types not present for program".to_string());
-        }
-      }
-    }
-  }
-
-  pub fn load_repository<L: Logger>(self, ctx: &Rc<Context>, logger: &L) -> ShaderRepository {
-    let mut repo = ShaderRepository::default();
-
-    for (id, sources) in self.sources {
-      match Shader::from(ctx.clone(), sources) {
-        Ok(shader) => {
-          repo.shaders.insert(id.into(), Rc::new(shader));
-        }
-        Err(msg) => {
-          logger.error(format!("cannot load shader '{}': {}", id, msg));
-        }
-      }
-    }
-
-    repo
-  }
-}
-
-pub struct Shader {
-  program: Program,
-}
-
-impl Shader {
-  fn from(ctx: Rc<Context>, sources: ProgramSources) -> Result<Self, ProgramCreationError> {
-    let program = Program::from_source(&ctx, &sources.vertex, &sources.fragment, None)?;
-
-    Ok(Self { program })
-  }
-}
-
-impl Deref for Shader {
-  type Target = Program;
-  fn deref(&self) -> &Self::Target {
-    &self.program
-  }
-}
-
-#[derive(Default)]
-pub struct ShaderRepository {
-  shaders: BTreeMap<String, Rc<Shader>>,
-}
-
-impl ShaderRepository {
-  pub fn get(&self, id: &str) -> Option<Rc<Shader>> {
-    self.shaders.get(id).cloned()
-  }
-
-  pub fn list(&self) -> Vec<String> {
-    let mut ret = Vec::default();
-
-    for id in self.shaders.keys() {
-      ret.push(id.clone());
-    }
-
-    ret
-  }
-}
-
-impl AsPtr for ShaderRepository {}
+impl AsPtr for ShaderProgramArchive {}

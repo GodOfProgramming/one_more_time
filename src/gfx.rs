@@ -4,6 +4,6 @@ mod sprite;
 mod tex;
 
 pub use model::*;
-pub use shaders::{Shader, ShaderRepository, ShaderSources};
+pub use shaders::{Shader, ShaderProgramArchive, ShaderSourceArchive};
 pub use sprite::*;
 pub use tex::*;

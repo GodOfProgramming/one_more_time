@@ -9,7 +9,7 @@ pub mod prelude {
   pub use super::*;
 }
 
-pub struct ConstPtr<T: Sized>(*const T);
+pub struct ConstPtr<T: ?Sized>(*const T);
 
 impl<T> Default for ConstPtr<T> {
   fn default() -> Self {
@@ -17,7 +17,7 @@ impl<T> Default for ConstPtr<T> {
   }
 }
 
-impl<T: Sized> ConstPtr<T> {
+impl<T> ConstPtr<T> {
   pub fn new(t: &T) -> Self {
     Self(t)
   }
@@ -31,13 +31,19 @@ impl<T: Sized> ConstPtr<T> {
   }
 }
 
-impl<T: Sized> Clone for ConstPtr<T> {
+impl<T> AsRef<T> for ConstPtr<T> {
+  fn as_ref(&self) -> &T {
+    unsafe { &*self.raw() }
+  }
+}
+
+impl<T> Clone for ConstPtr<T> {
   fn clone(&self) -> Self {
     Self(self.0)
   }
 }
 
-impl<T: Sized> Copy for ConstPtr<T> {}
+impl<T> Copy for ConstPtr<T> {}
 
 impl<T> Deref for ConstPtr<T> {
   type Target = T;
@@ -46,7 +52,7 @@ impl<T> Deref for ConstPtr<T> {
   }
 }
 
-impl<T: Sized> From<MutPtr<T>> for ConstPtr<T> {
+impl<T> From<MutPtr<T>> for ConstPtr<T> {
   fn from(ptr: MutPtr<T>) -> Self {
     Self(ptr.raw())
   }
@@ -64,7 +70,7 @@ impl<T> From<&Box<T>> for ConstPtr<T> {
   }
 }
 
-pub struct MutPtr<T: Sized>(*mut T);
+pub struct MutPtr<T: ?Sized>(*mut T);
 
 impl<T> Default for MutPtr<T> {
   fn default() -> Self {
@@ -72,7 +78,7 @@ impl<T> Default for MutPtr<T> {
   }
 }
 
-impl<T: Sized> Clone for MutPtr<T> {
+impl<T> Clone for MutPtr<T> {
   fn clone(&self) -> Self {
     Self(self.0)
   }
@@ -91,6 +97,18 @@ impl<T> MutPtr<T> {
 
   pub fn null(&self) -> bool {
     self.0 == ptr::null_mut()
+  }
+}
+
+impl<T> AsRef<T> for MutPtr<T> {
+  fn as_ref(&self) -> &T {
+    unsafe { &*self.raw() }
+  }
+}
+
+impl<T> AsMut<T> for MutPtr<T> {
+  fn as_mut(&mut self) -> &mut T {
+    unsafe { &mut *self.raw() }
   }
 }
 

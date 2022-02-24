@@ -24,19 +24,31 @@ impl UiElement for TextBox {
     self.id.clone()
   }
 
+  fn set_attrib(&mut self, _: String, _: UiAttributeValue) {
+    // do nothing for now
+  }
+}
+
+impl UiComponent for TextBox {
   fn update(
     &mut self,
     logger: &dyn Logger,
     ui: &imgui::Ui<'_>,
-    class: &LuaValue,
-    instance: &LuaValue,
+    instance: &mut dyn UiModelInstance,
     _settings: &Settings,
   ) {
     ui.text(&self.text);
   }
 
-  fn dupe(&self) -> UiElementPtr {
-    Box::new(self.clone())
+  fn clone_ui(&self, id_map: &mut BTreeMap<String, UiElementPtr>) -> UiComponentPtr {
+    let ui = Rc::new(RefCell::new(self.clone()));
+    let ptr: Rc<RefCell<dyn UiElement>> = ui.clone();
+
+    if let Some(id) = self.id() {
+      id_map.insert(id, ptr);
+    }
+
+    ui
   }
 }
 
@@ -50,8 +62,8 @@ impl UiElementParent for TextBox {
   }
 }
 
-impl From<TextBox> for Ui {
+impl From<TextBox> for UiComponentPtr {
   fn from(ui: TextBox) -> Self {
-    Ui(Box::new(ui))
+    Rc::new(RefCell::new(ui))
   }
 }

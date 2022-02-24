@@ -68,29 +68,3 @@ impl MutPtr<Settings> {
     self.show_demo_window = !self.show_demo_window;
   }
 }
-
-impl UserData for MutPtr<Settings> {
-  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-    methods.add_method_mut("show_profiler", |_, this, _: ()| Ok(this.show_profiler));
-    methods.add_method_mut("set_show_profiler", |_, this, show_profiler: bool| {
-      this.show_profiler = show_profiler;
-      Ok(())
-    });
-    methods.add_method_mut("show_or_hide_profiler", |_, this, _: ()| {
-      this.invert_profiler_display();
-      Ok(())
-    });
-
-    methods.add_method_mut("show_demo_window", |_, this, _: ()| {
-      Ok(this.show_demo_window)
-    });
-    methods.add_method_mut("set_show_demo_window", |_, this, show_demo_window: bool| {
-      this.show_demo_window = show_demo_window;
-      Ok(())
-    });
-    methods.add_method_mut("show_or_hide_demo_window", |_, this, _: ()| {
-      this.invert_demo_window_display();
-      Ok(())
-    });
-  }
-}

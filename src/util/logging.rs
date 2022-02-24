@@ -4,7 +4,6 @@ use omt::{
   fern::{self, InitError},
   log::LevelFilter,
   log::{debug, error, info, trace, warn},
-  mlua::{UserData, UserDataMethods},
 };
 use std::{
   ffi::OsString,
@@ -186,35 +185,6 @@ impl Logger for MainLogger {
 }
 
 impl AsPtr for MainLogger {}
-
-impl UserData for ConstPtr<MainLogger> {
-  fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-    methods.add_method_mut("trace", |_, this, msg: String| {
-      this.trace(msg);
-      Ok(())
-    });
-
-    methods.add_method_mut("debug", |_, this, msg: String| {
-      this.debug(msg);
-      Ok(())
-    });
-
-    methods.add_method_mut("info", |_, this, msg: String| {
-      this.info(msg);
-      Ok(())
-    });
-
-    methods.add_method_mut("warn", |_, this, msg: String| {
-      this.warn(msg);
-      Ok(())
-    });
-
-    methods.add_method_mut("error", |_, this, msg: String| {
-      this.error(msg);
-      Ok(())
-    });
-  }
-}
 
 impl SpawnableLogger<ChildLogger> for MainLogger {
   fn spawn(&self) -> ChildLogger {

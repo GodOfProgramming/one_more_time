@@ -3,7 +3,7 @@ use super::common::*;
 #[derive(Clone)]
 pub struct MainMenuBar {
   id: Option<String>,
-  children: Vec<Ui>,
+  children: Vec<UiComponentPtr>,
 }
 
 impl MainMenuBar {
@@ -25,23 +25,35 @@ impl UiElement for MainMenuBar {
     self.id.clone()
   }
 
+  fn set_attrib(&mut self, _: String, _: UiAttributeValue) {
+    // do nothing for now
+  }
+}
+
+impl UiComponent for MainMenuBar {
   fn update(
     &mut self,
     logger: &dyn Logger,
     ui: &imgui::Ui<'_>,
-    class: &LuaValue,
-    instance: &LuaValue,
+    instance: &mut dyn UiModelInstance,
     settings: &Settings,
   ) {
     ui.main_menu_bar(|| {
       for child in self.children.iter_mut() {
-        child.update(logger, ui, class, instance, settings);
+        child.borrow_mut().update(logger, ui, instance, settings);
       }
     });
   }
 
-  fn dupe(&self) -> UiElementPtr {
-    Box::new(self.clone())
+  fn clone_ui(&self, id_map: &mut BTreeMap<String, UiElementPtr>) -> UiComponentPtr {
+    let ui = Rc::new(RefCell::new(self.clone()));
+    let ptr: Rc<RefCell<dyn UiElement>> = ui.clone();
+
+    if let Some(id) = self.id() {
+      id_map.insert(id, ptr);
+    }
+
+    ui
   }
 }
 
@@ -56,8 +68,8 @@ impl UiElementParent for MainMenuBar {
   }
 }
 
-impl From<MainMenuBar> for Ui {
+impl From<MainMenuBar> for UiComponentPtr {
   fn from(ui: MainMenuBar) -> Self {
-    Ui(Box::new(ui))
+    Rc::new(RefCell::new(ui))
   }
 }
