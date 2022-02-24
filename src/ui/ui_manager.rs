@@ -62,9 +62,9 @@ impl UiManager {
   }
 
   #[profiling::function]
-  pub fn update(&mut self, logger: &dyn Logger, ui: &Ui<'_>, settings: &Settings) {
+  pub fn update(&mut self, ui: &Ui<'_>, game: &mut dyn Game) {
     for element in self.open_ui.values_mut() {
-      element.update(logger, ui, settings);
+      element.update(ui, game);
     }
   }
 

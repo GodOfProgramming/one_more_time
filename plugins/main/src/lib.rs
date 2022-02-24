@@ -1,6 +1,8 @@
 use omt::{
-  ui::{UiModel, UiModelInstance},
-  util::settings::{Settings, Table},
+  core::*,
+  toml::Value,
+  ui::{UiModel, UiModelError, UiModelInstance},
+  util::*,
   Plugin, PluginResult,
 };
 
@@ -8,35 +10,48 @@ pub fn exports() -> PluginResult {
   Ok(Plugin)
 }
 
-struct TestUi;
+struct DebugMainMenu;
 
-impl TestUi {}
+impl UiModel for DebugMainMenu {
+  fn tag_name(&self) -> &'static str {
+    "debug-main-menu"
+  }
 
-impl UiModel for TestUi {
-  fn new_instance() -> Result<Box<dyn UiModelInstance>, ()> {
-    Ok(TestUiInstance);
+  fn new_instance(&self) -> Result<Box<dyn UiModelInstance>, UiModelError> {
+    Ok(Box::new(DebugMainMenu))
   }
 }
 
-struct TestUiInstance;
-
-impl UiModelInstance for TestUiInstance {
-  fn call_handler(&self, game: Game, name: &str) {
+impl UiModelInstance for DebugMainMenu {
+  fn call_handler(&self, name: &str, game: &mut dyn Game) {
     match name {
       "show_or_hide_profiler" => {
-        game.settings().modify("game", |game_settings: &mut Table| {
-          game_settings.modify("show_or_hide_profiler", |value: &bool| {
-            *value = !value;
+        game
+          .settings()
+          .modify("game", &|game_settings: &mut Value| {
+            if let Value::Table(game_settings) = game_settings {
+              if let Some(Value::Boolean(show_or_hide_profiler)) =
+                game_settings.get_mut("show_or_hide_profiler")
+              {
+                *show_or_hide_profiler = !*show_or_hide_profiler;
+              }
+            }
           });
-        });
       }
       "show_or_hide_demo_window" => {
-        game.settings().modify("game", |game_settings: &mut Table| {
-          game_settings.modify("show_or_hide_demo_window", |value: &bool| {
-            *value = !value;
+        game
+          .settings()
+          .modify("game", &|game_settings: &mut Value| {
+            if let Value::Table(game_settings) = game_settings {
+              if let Some(Value::Boolean(show_or_hide_demo_window)) =
+                game_settings.get_mut("show_or_hide_demo_window")
+              {
+                *show_or_hide_demo_window = !*show_or_hide_demo_window;
+              }
+            }
           });
-        });
       }
+      _ => (),
     }
   }
 }

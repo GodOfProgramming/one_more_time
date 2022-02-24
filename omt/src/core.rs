@@ -2,7 +2,8 @@ use crate::util::*;
 use std::path::PathBuf;
 
 pub trait Game {
-  fn settings() -> Box<dyn Settings>;
+  fn settings(&mut self) -> &mut dyn Settings;
+  fn logger(&self) -> &dyn Logger;
 }
 
 pub struct ShaderSource {

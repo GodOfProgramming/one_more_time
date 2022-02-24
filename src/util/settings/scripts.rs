@@ -33,7 +33,7 @@ impl From<Table> for Settings {
   }
 }
 
-impl Into<Table> for Settings {
+impl Into<Table> for &Settings {
   fn into(self) -> Table {
     let mut table = Table::new();
 
@@ -42,7 +42,7 @@ impl Into<Table> for Settings {
       Value::Array(
         self
           .exclude
-          .into_iter()
+          .iter()
           .map(|s| Value::String(s.to_string()))
           .collect(),
       ),

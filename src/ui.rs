@@ -1,5 +1,6 @@
 use common::*;
 pub use omt::{
+  core::Game,
   dyn_clone::{self, DynClone},
   imgui,
   ui::{Document, StaticUi, UiElement, UiModel, UiModelInstance},
@@ -30,6 +31,7 @@ pub mod common {
   };
   pub use crate::{type_map, util::prelude::*};
   pub use omt::{
+    core::Game,
     imgui::{self, ImStr},
     lazy_static::lazy_static,
     maplit::hashmap,
@@ -173,10 +175,9 @@ pub type UiComponentPtr = Rc<RefCell<dyn UiComponent>>;
 pub trait UiComponent: DynClone + UiElement {
   fn update(
     &mut self,
-    _logger: &dyn Logger,
     _ui: &imgui::Ui<'_>,
     _instance: &mut dyn UiModelInstance,
-    _settings: &Settings,
+    _game: &mut dyn Game,
   ) {
     panic!("'update' not implemented");
   }
@@ -209,11 +210,11 @@ impl UiComponentInstance {
     }
   }
 
-  fn update(&mut self, logger: &dyn Logger, ui: &imgui::Ui<'_>, settings: &Settings) {
+  fn update(&mut self, ui: &imgui::Ui<'_>, game: &mut dyn Game) {
     self
       .el
       .borrow_mut()
-      .update(logger, ui, self.instance.as_mut(), settings);
+      .update(ui, self.instance.as_mut(), game);
   }
 }
 

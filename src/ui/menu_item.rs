@@ -39,15 +39,14 @@ impl UiElement for MenuItem {
 impl UiComponent for MenuItem {
   fn update(
     &mut self,
-    logger: &dyn Logger,
     ui: &imgui::Ui<'_>,
     instance: &mut dyn UiModelInstance,
-    _settings: &Settings,
+    game: &mut dyn Game,
   ) {
     let im_str = unsafe { ImStr::from_cstr_unchecked(&self.name) };
     if imgui::MenuItem::new(im_str).build(ui) {
       if let Some(on_click) = &self.on_click {
-        instance.call_handler(on_click);
+        instance.call_handler(on_click, game);
       }
     }
   }

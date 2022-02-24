@@ -1,6 +1,9 @@
 use common::*;
 use omt::toml::{value::Table, Value};
-use std::{fs, path::Path};
+use std::{
+  fs,
+  path::{Path, PathBuf},
+};
 
 pub mod display;
 pub mod game;
@@ -22,6 +25,7 @@ mod keys {
 
 #[derive(Default, Debug)]
 pub struct Settings {
+  file: PathBuf,
   pub display: display::Settings,
   pub graphics: graphics::Settings,
   pub game: game::Settings,
@@ -29,11 +33,18 @@ pub struct Settings {
 }
 
 impl Settings {
+  fn new(file: PathBuf) -> Self {
+    Self {
+      file,
+      ..Default::default()
+    }
+  }
+
   pub fn load(p: &Path) -> Result<Settings, String> {
     match fs::read_to_string(p) {
       Ok(data) => match data.parse::<Value>() {
         Ok(root) => {
-          let mut settings = Settings::default();
+          let mut settings = Settings::new(p.to_path_buf());
 
           if let Some(Value::Table(display)) = root.get(keys::DISPLAY) {
             settings.display = display::Settings::from(display);
@@ -59,32 +70,40 @@ impl Settings {
     }
   }
 
-  pub fn save(self, p: &Path) -> Result<(), String> {
+  pub fn save(&self) -> Result<(), String> {
     let mut root = Table::new();
 
     root.insert(
       String::from(keys::DISPLAY),
-      Value::Table(self.display.into()),
+      Value::Table((&self.display).into()),
     );
 
     root.insert(
       String::from(keys::GRAPHICS),
-      Value::Table(self.graphics.into()),
+      Value::Table((&self.graphics).into()),
     );
 
-    root.insert(String::from(keys::GAME), Value::Table(self.game.into()));
+    root.insert(String::from(keys::GAME), Value::Table((&self.game).into()));
 
     root.insert(
       String::from(keys::SCRIPTS),
-      Value::Table(self.scripts.into()),
+      Value::Table((&self.scripts).into()),
     );
 
     match toml::to_string_pretty(&root) {
-      Ok(data) => {
-        fs::write(p, data).map_err(|e| format!("could not write settings to '{:?}': {}", p, e))
-      }
-      Err(e) => Err(format!("could not read settings at '{:?}': {}", p, e)),
+      Ok(data) => fs::write(&self.file, data)
+        .map_err(|e| format!("could not write settings to '{:?}': {}", self.file, e)),
+      Err(e) => Err(format!(
+        "could not read settings at '{:?}': {}",
+        self.file, e
+      )),
     }
+  }
+}
+
+impl omt::util::Settings for Settings {
+  fn modify(&mut self, _: &str, _: &dyn for<'r> std::ops::FnOnce(&'r mut omt::toml::Value)) {
+    todo!()
   }
 }
 

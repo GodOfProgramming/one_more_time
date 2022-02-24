@@ -64,7 +64,7 @@ impl From<Table> for Settings {
   }
 }
 
-impl Into<Table> for Settings {
+impl Into<Table> for &Settings {
   fn into(self) -> Table {
     let mut table = Table::new();
 

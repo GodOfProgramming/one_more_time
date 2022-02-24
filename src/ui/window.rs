@@ -75,10 +75,9 @@ impl UiElement for Window {
 impl UiComponent for Window {
   fn update(
     &mut self,
-    logger: &dyn Logger,
     ui: &imgui::Ui<'_>,
     instance: &mut dyn UiModelInstance,
-    settings: &Settings,
+    game: &mut dyn Game,
   ) {
     let im_str = unsafe { ImStr::from_cstr_unchecked(&self.title) };
     let children = &mut self.children;
@@ -88,7 +87,7 @@ impl UiComponent for Window {
       .bg_alpha(if self.transparent { 0.0 } else { 1.0 })
       .build(ui, || {
         for child in children.iter_mut() {
-          child.borrow_mut().update(logger, ui, instance, settings);
+          child.borrow_mut().update(ui, instance, game);
         }
       });
   }

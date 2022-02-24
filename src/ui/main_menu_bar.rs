@@ -33,14 +33,13 @@ impl UiElement for MainMenuBar {
 impl UiComponent for MainMenuBar {
   fn update(
     &mut self,
-    logger: &dyn Logger,
     ui: &imgui::Ui<'_>,
     instance: &mut dyn UiModelInstance,
-    settings: &Settings,
+    game: &mut dyn Game,
   ) {
     ui.main_menu_bar(|| {
       for child in self.children.iter_mut() {
-        child.borrow_mut().update(logger, ui, instance, settings);
+        child.borrow_mut().update(ui, instance, game);
       }
     });
   }

@@ -22,16 +22,13 @@ fn main() {
 
   let logger = MainLogger::new(LOG_LIMIT);
 
-  let mut app = App::new(logger);
-
   let cwd = env::current_dir().unwrap(); // unwrap because there's bigger problems if this doesn't work
   let dirs = Dirs::new(cwd);
   let settings_file = Path::new(SETTINGS_FILE);
   let mut settings = Settings::load(settings_file).unwrap();
-
   let mut input_devices = InputDevices::default();
 
-  app.run(&mut settings, &dirs, &mut input_devices);
+  let mut app = App::new(logger, settings);
 
-  settings.save(settings_file).unwrap();
+  app.run(&dirs, &mut input_devices);
 }

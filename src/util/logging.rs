@@ -1,4 +1,5 @@
 use crate::util::prelude::*;
+pub use omt::util::Logger;
 use omt::{
   chrono::Local,
   fern::{self, InitError},
@@ -15,14 +16,6 @@ use std::{
 
 const LOG_DIR: &str = "logs";
 const BASE_LOG_FILENAME: &str = "game";
-
-pub trait Logger {
-  fn trace(&self, msg: String);
-  fn debug(&self, msg: String);
-  fn info(&self, msg: String);
-  fn warn(&self, msg: String);
-  fn error(&self, msg: String);
-}
 
 pub trait SpawnableLogger<C: Logger>: Logger {
   fn spawn(&self) -> C;

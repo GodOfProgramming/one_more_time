@@ -15,6 +15,7 @@ use crate::{
 };
 
 use omt::{
+  core::Game,
   glium::{
     self,
     backend::Context,
@@ -39,20 +40,22 @@ enum State {
 
 pub struct App {
   logger: MainLogger,
+  settings: Settings,
   state: State,
 }
 
 impl App {
-  pub fn new(logger: MainLogger) -> Self {
+  pub fn new(logger: MainLogger, settings: Settings) -> Self {
     Self {
       logger,
+      settings,
       state: State::Starting,
     }
   }
 
-  pub fn run(&mut self, settings: &mut Settings, dirs: &Dirs, input_devices: &mut InputDevices) {
+  pub fn run(&mut self, dirs: &Dirs, input_devices: &mut InputDevices) {
     self.logger.info("creating window".to_string());
-    let (window, draw_interface) = Window::new(settings);
+    let (window, draw_interface) = Window::new(&mut self.settings);
 
     self.logger.info("initializing opengl".to_string());
     let behavior = App::create_opengl_debug_behavior(self.logger.spawn());
@@ -83,7 +86,7 @@ impl App {
     self.logger.info("initializing entities".to_string());
     let entity_repository = EntityArchive::new(self.logger.spawn());
 
-    let mut fps_manager = FpsManager::new(settings.graphics.fps.into());
+    let mut fps_manager = FpsManager::new(self.settings.graphics.fps.into());
 
     self.logger.info("loading ui".to_string());
     ui_manager.load_ui(RecursiveDirIteratorWithID::from(&dirs.assets.ui));
@@ -141,7 +144,7 @@ impl App {
 
       map.update();
 
-      camera.update(settings);
+      camera.update(&self.settings);
 
       i += 0.1;
 
@@ -150,15 +153,18 @@ impl App {
       input_devices.new_frame();
 
       imgui_ctx.io_mut().display_size = [
-        settings.display.window.x as f32,
-        settings.display.window.y as f32,
+        self.settings.display.window.x as f32,
+        self.settings.display.window.y as f32,
       ];
 
       // render logic
 
       let mut frame = glium::Frame::new(
         gl_context.clone(),
-        (settings.display.window.x, settings.display.window.y),
+        (
+          self.settings.display.window.x,
+          self.settings.display.window.y,
+        ),
       );
 
       frame.clear_color(i.sin(), 0.30, 1.0 - i.sin(), 1.0);
@@ -171,13 +177,13 @@ impl App {
 
       let ui: imgui::Ui<'_> = imgui_ctx.frame();
 
-      ui_manager.update(&self.logger, &ui, settings);
+      ui_manager.update(&ui, self);
 
-      if settings.game.show_profiler {
+      if self.settings.game.show_profiler {
         puffin_ui.window(&ui);
       }
 
-      if settings.game.show_demo_window {
+      if self.settings.game.show_demo_window {
         ui.show_demo_window(&mut true);
       }
 
@@ -193,6 +199,8 @@ impl App {
 
       fps_manager.end();
     }
+
+    self.settings.save().unwrap();
   }
 
   fn create_opengl_debug_behavior(child_logger: ChildLogger) -> DebugCallbackBehavior {
@@ -260,6 +268,16 @@ impl App {
         }
       }
     }
+  }
+}
+
+impl Game for App {
+  fn settings(&mut self) -> &mut dyn omt::util::Settings {
+    &mut self.settings
+  }
+
+  fn logger(&self) -> &dyn omt::util::Logger {
+    &self.logger
   }
 }
 

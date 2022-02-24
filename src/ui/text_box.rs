@@ -32,10 +32,9 @@ impl UiElement for TextBox {
 impl UiComponent for TextBox {
   fn update(
     &mut self,
-    logger: &dyn Logger,
     ui: &imgui::Ui<'_>,
     instance: &mut dyn UiModelInstance,
-    _settings: &Settings,
+    _game: &mut dyn Game,
   ) {
     ui.text(&self.text);
   }

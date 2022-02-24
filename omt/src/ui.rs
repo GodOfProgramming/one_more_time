@@ -1,3 +1,4 @@
+use crate::core::Game;
 use std::{
   cell::RefCell,
   fmt::{Display, Error, Formatter},
@@ -32,7 +33,7 @@ pub trait UiModel {
 }
 
 pub trait UiModelInstance {
-  fn call_handler(&self, _name: &str) {}
+  fn call_handler(&self, _name: &str, _game: &mut dyn Game) {}
 }
 
 pub trait Document {

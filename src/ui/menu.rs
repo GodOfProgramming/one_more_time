@@ -41,16 +41,15 @@ impl UiElement for Menu {
 impl UiComponent for Menu {
   fn update(
     &mut self,
-    logger: &dyn Logger,
     ui: &imgui::Ui<'_>,
     instance: &mut dyn UiModelInstance,
-    settings: &Settings,
+    game: &mut dyn Game,
   ) {
     let im_str = unsafe { ImStr::from_cstr_unchecked(&self.name) };
     let children = &mut self.children;
     if let Some(menu) = ui.begin_menu(im_str) {
       for child in children.iter_mut() {
-        child.borrow_mut().update(logger, ui, instance, settings);
+        child.borrow_mut().update(ui, instance, game);
       }
       menu.end();
     }
