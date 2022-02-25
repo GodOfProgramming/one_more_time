@@ -48,6 +48,7 @@ impl AssetsDir {
 #[derive(Debug, Clone)]
 pub struct Dirs {
   pub root: PathBuf,
+  pub plugins: PathBuf,
   pub assets: AssetsDir,
   pub config: PathBuf,
 }
@@ -55,6 +56,7 @@ pub struct Dirs {
 impl Dirs {
   pub fn new(root: PathBuf) -> Self {
     Self {
+      plugins: root.join("plugins"),
       assets: AssetsDir::new(root.join("assets")),
       config: root.join("config"),
       root,

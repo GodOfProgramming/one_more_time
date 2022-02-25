@@ -6,7 +6,7 @@ use std::{
 };
 
 pub trait UiModelLoader {
-  fn register(&mut self, name: String, model: Rc<dyn UiModel>);
+  fn register(&mut self, name: &str, model: Rc<dyn UiModel>);
 }
 
 pub trait UiSourceLoader {
@@ -53,19 +53,3 @@ pub trait UiElement {
   fn id(&self) -> Option<String>;
   fn set_attrib(&mut self, attrib: String, value: UiAttributeValue);
 }
-
-// Built-in types
-
-pub struct StaticUi;
-
-impl UiModel for StaticUi {
-  fn tag_name(&self) -> &'static str {
-    "static"
-  }
-
-  fn new_instance(&self) -> Result<Box<dyn UiModelInstance>, UiModelError> {
-    Ok(Box::new(StaticUi))
-  }
-}
-
-impl UiModelInstance for StaticUi {}

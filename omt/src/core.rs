@@ -1,4 +1,4 @@
-use crate::util::*;
+use crate::{glm, util::*};
 
 pub trait Game {
   fn settings(&mut self) -> &mut dyn Settings;
@@ -6,7 +6,7 @@ pub trait Game {
 }
 
 pub trait EntityModelLoader {
-  fn register(&mut self, name: String, model: Box<dyn EntityModel>);
+  fn register(&mut self, name: &str, model: Box<dyn EntityModel>);
 }
 
 pub trait EntityModel {
@@ -19,6 +19,7 @@ pub trait EntityModel {
 pub trait EntityInstance {
   fn update(&mut self, handle: &mut dyn EntityHandle);
   fn should_update(&self) -> bool;
+  fn transform(&self) -> glm::Mat4;
 }
 
 pub trait EntityHandle {
@@ -50,5 +51,9 @@ impl EntityInstance for InvisibleEntity {
 
   fn should_update(&self) -> bool {
     false
+  }
+
+  fn transform(&self) -> glm::Mat4 {
+    glm::Mat4::identity()
   }
 }

@@ -20,7 +20,6 @@ scheduled-thread-pool = "0.2.5"
 
 regex = "1.5.4"
 uid = "0.1.7"
-walkdir = "2.3.2"
 
 # data
 xml-rs = "0.8.4"

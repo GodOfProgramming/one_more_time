@@ -10,3 +10,4 @@ crate-type = ["rlib", "cdylib"]
 
 [dependencies]
 omt = { path = "../../omt" }
+walkdir = "2.3.2"

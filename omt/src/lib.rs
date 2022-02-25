@@ -2,6 +2,7 @@ use crate::{
   core::EntityModelLoader,
   gfx::{ShaderLoader, TextureLoader},
   ui::{UiModelLoader, UiSourceLoader},
+  util::Logger,
 };
 use std::path::PathBuf;
 
@@ -17,6 +18,7 @@ pub mod util;
 
 pub trait Plugin {
   fn path(&self) -> PathBuf;
+  fn logger(&self) -> &dyn Logger;
   fn textures(&mut self) -> &mut dyn TextureLoader;
   fn shaders(&mut self) -> &mut dyn ShaderLoader;
   fn ui_models(&mut self) -> &mut dyn UiModelLoader;
@@ -30,4 +32,4 @@ pub enum PluginLoadError {
 
 pub type PluginResult = Result<(), PluginLoadError>;
 
-pub type PluginLoadFn = fn(&mut dyn Plugin) -> PluginResult;
+pub type PluginLoadFn = unsafe extern "C" fn(&mut dyn Plugin) -> PluginResult;

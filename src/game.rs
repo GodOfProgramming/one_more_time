@@ -78,7 +78,7 @@ impl App {
 
     let mut camera = Camera::default();
 
-    self.load_plugins();
+    self.load_plugins(dirs);
 
     self.logger.info("opening debug menu".to_string());
     // ui_manager.open("core.main_menu_bar", "debug_main_menu_bar");
@@ -189,27 +189,34 @@ impl App {
     self.settings.save().unwrap();
   }
 
-  fn load_plugins(&self) {
+  fn load_plugins(&self, dirs: Dirs) {
     let version: &str = env!("CARGO_PKG_VERSION");
 
-    let plugin_dir = PathBuf::from("plugins");
-
-    if let Ok(entries) = fs::read_dir(&plugin_dir) {
+    if let Ok(entries) = fs::read_dir(&dirs.plugins) {
       for entry in entries.flatten() {
-        if let Some(extension) = entry.path().extension().and_then(std::ffi::OsStr::to_str) {
-          // todo get string based on os
-          if extension != "dll" {
-            continue;
-          }
+        self.logger.debug(format!("checking plugin {:?}", entry));
+        if let Ok(meta) = entry.metadata() {
+          if meta.is_dir() {
+            let plugin_dir = entry.path().join(version);
+            self
+              .logger
+              .debug(format!("checking version dir {:?}", plugin_dir));
+            if let Ok(entries) = fs::read_dir(&plugin_dir) {
+              for entry in entries.flatten() {
+                self.logger.debug(format!("checking file {:?}", entry));
+                if let Some(extension) = entry.path().extension().and_then(std::ffi::OsStr::to_str)
+                {
+                  // todo get string based on os
+                  if extension != "dll" {
+                    continue;
+                  }
 
-          if let Ok(meta) = entry.metadata() {
-            if meta.is_dir() {
-              let plugin_dir = plugin_dir.join(entry.path()).join(version);
-              if let Ok(entries) = fs::read_dir(&plugin_dir) {
-                for entry in entries.flatten() {
-                  let result = Lib::load_lib(&entry.path(), |path: PathBuf, lib: &mut Library| {
+                  self.logger.debug("dll found, loading".to_string());
+
+                  let result = Lib::load_lib(&plugin_dir, |path: PathBuf, lib: &mut Library| {
                     self.load_plugin(path, lib)
                   });
+
                   if let Err(err) = result {
                     self
                       .logger
@@ -227,7 +234,7 @@ impl App {
   fn load_plugin(&self, path: PathBuf, lib: &mut Library) -> Result<(), libloading::Error> {
     unsafe {
       let loader = lib.get::<PluginLoadFn>(b"exports")?;
-      let mut module = Mod::new(path);
+      let mut module = Mod::new(path, self.logger.spawn());
       if loader(&mut module).is_ok() {
         self.add_mod(module);
       }
@@ -250,9 +257,9 @@ impl Game for App {
 
 impl AsPtr for App {}
 
-#[derive(Default)]
 struct Mod {
   path: PathBuf,
+  logger: ChildLogger,
   images: ImageArchive,
   shaders: ShaderSourceArchive,
   ui_models: UiModelArchive,
@@ -261,10 +268,15 @@ struct Mod {
 }
 
 impl Mod {
-  fn new(path: PathBuf) -> Self {
+  fn new(path: PathBuf, logger: ChildLogger) -> Self {
     Self {
       path,
-      ..Default::default()
+      logger,
+      images: Default::default(),
+      shaders: Default::default(),
+      ui_models: Default::default(),
+      ui_sources: Default::default(),
+      entity_models: Default::default(),
     }
   }
 }
@@ -272,6 +284,10 @@ impl Mod {
 impl Plugin for Mod {
   fn path(&self) -> std::path::PathBuf {
     self.path.clone()
+  }
+
+  fn logger(&self) -> &dyn Logger {
+    &self.logger
   }
 
   fn textures(&mut self) -> &mut dyn omt::gfx::TextureLoader {

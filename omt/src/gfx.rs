@@ -1,9 +1,18 @@
 use image::RgbaImage;
-use std::path::PathBuf;
+use std::path::{ PathBuf, Path };
 
 pub struct ShaderSource {
   pub vertex: PathBuf,
   pub fragment: PathBuf,
+}
+
+impl ShaderSource {
+  pub fn new(vertex: &Path, fragment: &Path) -> Self {
+    Self {
+      vertex: vertex.to_path_buf(),
+      fragment: fragment.to_path_buf(),
+    }
+  }
 }
 
 pub trait ShaderLoader {

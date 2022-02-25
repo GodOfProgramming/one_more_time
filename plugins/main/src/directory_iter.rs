@@ -1,10 +1,10 @@
-use omt::walkdir::{DirEntry, WalkDir};
 use std::{
   ffi::{OsStr, OsString},
   fmt::Display,
   ops::Deref,
   path::{Path, PathBuf},
 };
+use walkdir::{DirEntry, WalkDir};
 
 #[derive(Default, Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct DirID {
@@ -158,6 +158,12 @@ impl From<&PathBuf> for RecursiveDirIteratorWithID {
     let dirs = dirs.into_iter().rev().collect();
 
     Self { dirs, idx: 0 }
+  }
+}
+
+impl From<PathBuf> for RecursiveDirIteratorWithID {
+  fn from(path: PathBuf) -> Self {
+    Self::from(&path)
   }
 }
 

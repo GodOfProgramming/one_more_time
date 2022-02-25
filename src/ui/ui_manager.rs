@@ -1,4 +1,4 @@
-use super::{common::*, UiComponentInstance, UiPtr, UiTemplate};
+use super::{common::*, StaticUi, UiComponentInstance, UiPtr, UiTemplate};
 use crate::{imgui::Ui, util::prelude::*};
 use omt::ui::{UiModel, UiModelLoader, UiSourceLoader};
 use profiling;
@@ -10,8 +10,8 @@ pub struct UiModelArchive {
 }
 
 impl UiModelLoader for UiModelArchive {
-  fn register(&mut self, name: String, model: Rc<dyn UiModel>) {
-    self.models.insert(name, model);
+  fn register(&mut self, name: &str, model: Rc<dyn UiModel>) {
+    self.models.insert(name.to_string(), model);
   }
 }
 
@@ -35,9 +35,13 @@ pub struct UiManager {
 
 impl UiManager {
   pub fn new(logger: ChildLogger) -> Self {
+    let mut models: BTreeMap<String, Rc<dyn UiModel>> = BTreeMap::default();
+
+    models.insert("static".to_string(), Rc::new(StaticUi));
+
     Self {
       logger,
-      models: Default::default(),
+      models,
       templates: Default::default(),
       open_ui: Default::default(),
     }

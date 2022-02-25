@@ -26,6 +26,7 @@ mod keys {
 #[derive(Default, Debug)]
 pub struct Settings {
   file: PathBuf,
+  root: Table,
   pub display: display::Settings,
   pub graphics: graphics::Settings,
   pub game: game::Settings,
@@ -102,8 +103,10 @@ impl Settings {
 }
 
 impl omt::util::Settings for Settings {
-  fn modify(&mut self, _: &str, _: &dyn for<'r> std::ops::FnOnce(&'r mut omt::toml::Value)) {
-    todo!()
+  fn modify(&mut self, name: &str, f: Box<dyn for<'r> FnOnce(&'r mut omt::toml::Value)>) {
+    if let Some(child) = self.root.get_mut(name) {
+      f(child);
+    }
   }
 }
 

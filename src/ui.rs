@@ -3,7 +3,7 @@ use common::*;
 use dyn_clone::{self, DynClone};
 pub use omt::{
   core::Game,
-  ui::{Document, StaticUi, UiElement, UiModel, UiModelInstance},
+  ui::{Document, UiElement, UiModel, UiModelError, UiModelInstance},
 };
 use std::collections::{BTreeMap, HashMap};
 
@@ -112,6 +112,22 @@ pub fn parse_children<E: UiElementParent>(root: XmlNode) -> Vec<UiComponentPtr> 
 }
 
 /* ---------------------------------------------------------------------------------------- */
+
+/* Static Ui */
+
+pub struct StaticUi;
+
+impl UiModel for StaticUi {
+  fn tag_name(&self) -> &'static str {
+    "static"
+  }
+
+  fn new_instance(&self) -> Result<Box<dyn UiModelInstance>, UiModelError> {
+    Ok(Box::new(StaticUi))
+  }
+}
+
+impl UiModelInstance for StaticUi {}
 
 /* Template */
 

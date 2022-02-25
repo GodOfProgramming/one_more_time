@@ -22,8 +22,8 @@ pub struct EntityModelArchive {
 }
 
 impl EntityModelLoader for EntityModelArchive {
-  fn register(&mut self, name: String, model: Box<dyn EntityModel>) {
-    self.models.insert(name, model);
+  fn register(&mut self, name: &str, model: Box<dyn EntityModel>) {
+    self.models.insert(name.to_string(), model);
   }
 }
 
@@ -124,7 +124,6 @@ pub struct Entity {
   shader: Option<Rc<Shader>>,
   model: Option<Rc<Model>>,
   texture: Option<Rc<SrgbTexture2d>>,
-  transform: Mat4,
 }
 
 impl Entity {
@@ -136,7 +135,6 @@ impl Entity {
       shader: Default::default(),
       model: Default::default(),
       texture: Default::default(),
-      transform: Mat4::identity(),
     }
   }
 
@@ -149,11 +147,7 @@ impl Entity {
     if let Some(shader) = &self.shader {
       if let Some(model) = &self.model {
         if let Some(texture) = &self.texture {
-          use crate::math::glm;
-          let transform = glm::Mat4::identity();
-          let transform = glm::scale(&transform, &glm::vec3(5.0, 5.0, 1.0));
-          let transform = glm::rotate(&transform, 45_f32.to_radians(), &glm::vec3(0.0, 0.0, 1.0));
-          let transform: [[f32; 4]; 4] = transform.into();
+          let transform: [[f32; 4]; 4] = self.instance.transform().into();
           let view = camera.view();
           let proj = camera.projection();
 
