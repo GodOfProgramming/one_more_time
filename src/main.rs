@@ -10,7 +10,6 @@ use glium::{
 };
 use imgui_glium_renderer::{glium, imgui};
 use omt::util::Logger;
-use puffin;
 use std::{env, path::Path};
 
 mod game;
@@ -42,9 +41,9 @@ fn main() {
   let gl_context = unsafe { Context::new(draw_interface, false, behavior).unwrap() };
 
   logger.info("creating app".to_string());
-  let app = App::new(logger, settings, window);
+  let app = App::new(dirs, logger, settings, window);
 
-  app.run(dirs, gl_context);
+  app.run(gl_context);
 }
 
 fn create_opengl_debug_behavior(child_logger: ChildLogger) -> DebugCallbackBehavior {

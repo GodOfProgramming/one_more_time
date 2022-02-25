@@ -9,37 +9,40 @@ mod game;
 mod ui;
 
 #[no_mangle]
-pub extern "C" fn exports(plugin: &mut dyn Plugin) -> PluginResult {
+pub unsafe extern "C" fn exports(plugin: *mut dyn Plugin) -> PluginResult {
+  let mut plugin = unsafe { Box::from_raw(plugin) };
   // entities
   {
-    load_entities(plugin);
+    load_entities(&mut plugin);
   }
 
   // textures
   {
     let iter = RecursiveDirIteratorWithID::from(plugin.path().join("tex"));
-    load_textures(plugin, iter);
+    load_textures(&mut plugin, iter);
   }
 
   // shaders
   {
-    load_shaders(plugin);
+    load_shaders(&mut plugin);
   }
 
   // ui
   {
     let iter = RecursiveDirIteratorWithID::from(plugin.path().join("ui"));
-    load_ui(plugin, iter);
+    load_ui(&mut plugin, iter);
   }
+
+  Box::into_raw(plugin);
 
   Ok(())
 }
 
-pub fn load_entities(plugin: &mut dyn Plugin) {
+pub fn load_entities(plugin: &mut Box<dyn Plugin>) {
   plugin.entity_models().register("test", Box::new(TestModel));
 }
 
-pub fn load_textures(plugin: &mut dyn Plugin, iter: RecursiveDirIteratorWithID) {
+pub fn load_textures(plugin: &mut Box<dyn Plugin>, iter: RecursiveDirIteratorWithID) {
   plugin.logger().info("loading textures".to_string());
   for (path, id) in iter {
     plugin.logger().info(format!("loading {}", id));
@@ -59,13 +62,13 @@ pub fn load_textures(plugin: &mut dyn Plugin, iter: RecursiveDirIteratorWithID) 
   }
 }
 
-pub fn load_shaders(plugin: &mut dyn Plugin) {
+pub fn load_shaders(plugin: &mut Box<dyn Plugin>) {
   let shader_dir = plugin.path().join("shaders");
   let shader = ShaderSource::new(&shader_dir.join("basic.vs"), &shader_dir.join("basic.fs"));
   plugin.shaders().register("basic", shader);
 }
 
-pub fn load_ui(plugin: &mut dyn Plugin, iter: RecursiveDirIteratorWithID) {
+pub fn load_ui(plugin: &mut Box<dyn Plugin>, iter: RecursiveDirIteratorWithID) {
   plugin.logger().info("loading ui".to_string());
 
   plugin

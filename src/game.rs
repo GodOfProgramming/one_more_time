@@ -17,11 +17,7 @@ use imgui_glium_renderer::Renderer;
 use libloading::Library;
 use omt::{core::Game, Plugin, PluginLoadFn};
 use puffin_imgui::ProfilerUi;
-use std::{
-  fs,
-  path::{Path, PathBuf},
-  rc::Rc,
-};
+use std::{fs, path::PathBuf, rc::Rc};
 
 pub use cam::Camera;
 use world::*;
@@ -33,6 +29,7 @@ enum State {
 }
 
 pub struct App {
+  dirs: Dirs,
   logger: MainLogger,
   settings: Settings,
   window: Window,
@@ -42,8 +39,9 @@ pub struct App {
 }
 
 impl App {
-  pub fn new(logger: MainLogger, settings: Settings, window: Window) -> Self {
+  pub fn new(dirs: Dirs, logger: MainLogger, settings: Settings, window: Window) -> Self {
     Self {
+      dirs,
       logger,
       settings,
       window,
@@ -53,7 +51,7 @@ impl App {
     }
   }
 
-  pub fn run(mut self, dirs: Dirs, context: Rc<Context>) {
+  pub fn run(mut self, context: Rc<Context>) {
     self.logger.info("initializing models".to_string());
     let model_repository = ModelRepository::new(&context);
 
@@ -78,7 +76,7 @@ impl App {
 
     let mut camera = Camera::default();
 
-    self.load_plugins(dirs);
+    self.load_plugins();
 
     self.logger.info("opening debug menu".to_string());
     // ui_manager.open("core.main_menu_bar", "debug_main_menu_bar");
@@ -120,7 +118,7 @@ impl App {
         .window
         .poll_events(&mut self.input_devices, &mut imgui_ctx);
 
-      // pre prossess game logic
+      // pre process game logic
 
       if self.input_devices.check(Key::Escape) == KeyAction::Press {
         break;
@@ -189,10 +187,10 @@ impl App {
     self.settings.save().unwrap();
   }
 
-  fn load_plugins(&self, dirs: Dirs) {
+  fn load_plugins(&self) {
     let version: &str = env!("CARGO_PKG_VERSION");
 
-    if let Ok(entries) = fs::read_dir(&dirs.plugins) {
+    if let Ok(entries) = fs::read_dir(&self.dirs.plugins) {
       for entry in entries.flatten() {
         self.logger.debug(format!("checking plugin {:?}", entry));
         if let Ok(meta) = entry.metadata() {
@@ -213,8 +211,9 @@ impl App {
 
                   self.logger.debug("dll found, loading".to_string());
 
-                  let result = Lib::load_lib(&plugin_dir, |path: PathBuf, lib: &mut Library| {
-                    self.load_plugin(path, lib)
+                  let plugin_dir = plugin_dir.clone();
+                  let result = Lib::load_lib(&entry.path(), |lib: &mut Library| {
+                    self.load_plugin(plugin_dir, lib)
                   });
 
                   if let Err(err) = result {
@@ -242,7 +241,9 @@ impl App {
     Ok(())
   }
 
-  fn add_mod(&self, module: Mod) {}
+  fn add_mod(&self, module: Mod) {
+    // todo once lib loading works
+  }
 }
 
 impl Game for App {
