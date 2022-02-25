@@ -22,6 +22,14 @@ impl DirID {
     copy.id.push(s);
     copy
   }
+
+  pub fn convert_to_string(path: PathBuf) -> String {
+    path
+      .iter()
+      .map(|part| part.to_string_lossy().to_string())
+      .collect::<Vec<String>>()
+      .join(".")
+  }
 }
 
 impl Deref for DirID {
@@ -135,7 +143,7 @@ impl From<&PathBuf> for RecursiveDirIterator {
 }
 
 pub struct RecursiveDirIteratorWithID {
-  dirs: Vec<(PathBuf, DirID)>,
+  dirs: Vec<(String, PathBuf)>,
   idx: usize,
 }
 
@@ -151,7 +159,7 @@ impl From<&PathBuf> for RecursiveDirIteratorWithID {
         entry_cpy.pop();
         let last = entry.path().file_stem().unwrap();
         let id = entry_cpy.join(last);
-        dirs.push((entry.path().to_path_buf(), DirID::from(id)));
+        dirs.push((DirID::convert_to_string(id), entry.path().to_path_buf()));
       }
     }
 
@@ -168,7 +176,7 @@ impl From<PathBuf> for RecursiveDirIteratorWithID {
 }
 
 impl Iterator for RecursiveDirIteratorWithID {
-  type Item = (PathBuf, DirID);
+  type Item = (String, PathBuf);
   fn next(&mut self) -> std::option::Option<<Self as Iterator>::Item> {
     let dir = self.dirs.get(self.idx);
     self.idx += 1;

@@ -78,7 +78,7 @@ impl App {
     self.load_plugins(&mut ui_manager, context.clone(), &mut entity_archive);
 
     self.logger.info("opening debug menu".to_string());
-    ui_manager.open("\"core.main_menu_bar\"", "debug_main_menu_bar");
+    ui_manager.open("core.main_menu_bar", "debug_main_menu_bar");
 
     self.logger.info("creating map".to_string());
     let map_data = MapData {
@@ -95,8 +95,7 @@ impl App {
       self.texture_archive.as_ptr(),
     );
 
-    // self.logger.info("spawning test character".to_string());
-    // map.spawn("main.characters.test.square");
+    map.spawn("test");
 
     self.logger.info("showing window".to_string());
     self.window.show();
@@ -192,14 +191,14 @@ impl App {
     ctx: Rc<Context>,
     entity_archive: &mut EntityArchive,
   ) {
-    let version: &str = env!("CARGO_PKG_VERSION");
+    let version: String = format!("v{}", env!("CARGO_PKG_VERSION"));
 
     if let Ok(entries) = fs::read_dir(&self.dirs.plugins) {
       for entry in entries.flatten() {
         self.logger.debug(format!("checking plugin {:?}", entry));
         if let Ok(meta) = entry.metadata() {
           if meta.is_dir() {
-            let plugin_dir = entry.path().join(version);
+            let plugin_dir = entry.path().join(&version);
             self
               .logger
               .debug(format!("checking version dir {:?}", plugin_dir));

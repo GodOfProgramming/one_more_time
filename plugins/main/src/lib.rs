@@ -44,12 +44,12 @@ pub fn load_entities(plugin: &mut Box<dyn Plugin>) {
 
 pub fn load_textures(plugin: &mut Box<dyn Plugin>, iter: RecursiveDirIteratorWithID) {
   plugin.logger().info("loading textures".to_string());
-  for (path, id) in iter {
+  for (id, path) in iter {
     plugin.logger().info(format!("loading {}", id));
     match Reader::open(&path) {
       Ok(reader) => match reader.decode() {
         Ok(image) => {
-          plugin.textures().register(id.to_string(), image.to_rgba8());
+          plugin.textures().register(id, image.to_rgba8());
         }
         Err(err) => plugin
           .logger()
@@ -75,10 +75,10 @@ pub fn load_ui(plugin: &mut Box<dyn Plugin>, iter: RecursiveDirIteratorWithID) {
     .ui_models()
     .register("debug-main-menu", Rc::new(DebugMainMenu));
 
-  for (path, id) in iter {
+  for (id, path) in iter {
     plugin.logger().info(format!("loading {}", id));
     if let Ok(data) = fs::read_to_string(path) {
-      plugin.ui_sources().register(id.to_string(), data);
+      plugin.ui_sources().register(id, data);
     }
   }
 }

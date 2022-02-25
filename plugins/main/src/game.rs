@@ -28,7 +28,7 @@ pub struct TestInstance {
 impl TestInstance {
   fn new() -> Self {
     let transform = glm::scale(&glm::Mat4::identity(), &glm::vec3(5.0, 5.0, 1.0));
-    Self { i: 0.0, transform }
+    Self { i: 1.0, transform }
   }
 }
 
@@ -43,7 +43,7 @@ impl EntityInstance for TestInstance {
   }
 
   fn should_update(&self) -> bool {
-    todo!()
+    true
   }
 
   fn transform(&self) -> glm::Mat4 {
