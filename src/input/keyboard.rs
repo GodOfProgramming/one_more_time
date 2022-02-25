@@ -1,5 +1,4 @@
 use enum_map::{Enum, EnumMap};
-use omt::glfw;
 use strum::IntoEnumIterator;
 use strum_macros::{EnumCount, EnumIter};
 

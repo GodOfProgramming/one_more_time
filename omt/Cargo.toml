@@ -7,41 +7,7 @@ edition = "2021"
 
 [dependencies]
 
-# graphics
-glfw = "0.43.0"
-imgui-glium-renderer = "0.8.2"
+toml = "0.5.8"
 image = "0.23.14"
-
-# math
 nalgebra-glm = "0.16.0"
 ncollide2d = "0.32.0"
-
-# scripts
-mlua = { version = "0.7.3", features = ["lua54", "vendored"] }
-libloading = "0.7.3"
-
-# data
-toml = "0.5.8"
-xml-rs = "0.8.4"
-
-# util
-# steamworks = "0.8.0"
-chlorine = "1.0.9"
-chrono = "0.4.19"
-dyn-clone = "1.0.4"
-fern = "0.6.0"
-lazy_static = "1.4.0"
-log = "0.4.14"
-maplit = "1.0.2"
-regex = "1.5.4"
-scheduled-thread-pool = "0.2.5"
-uid = "0.1.7"
-walkdir = "2.3.2"
-
-#test
-double = "0.2.4"
-
-# dev util
-profiling = "1.0.5"
-puffin = "0.13.1"
-puffin-imgui = "0.16.0"

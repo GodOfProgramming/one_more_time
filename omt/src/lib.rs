@@ -1,35 +1,33 @@
-pub use chlorine;
-pub use chrono;
-pub use double;
-pub use dyn_clone;
-pub use fern;
-pub use glfw;
+use crate::{
+  core::EntityModelLoader,
+  gfx::{ShaderLoader, TextureLoader},
+  ui::{UiModelLoader, UiSourceLoader},
+};
+use std::path::PathBuf;
+
 pub use image;
-pub use imgui_glium_renderer::{self, glium, imgui};
-pub use lazy_static;
-pub use libloading;
-pub use log;
-pub use maplit;
 pub use nalgebra_glm as glm;
 pub use ncollide2d;
-pub use profiling;
-pub use puffin;
-pub use puffin_imgui;
-pub use regex;
-pub use scheduled_thread_pool;
 pub use toml;
-pub use uid;
-pub use walkdir;
-pub use xml;
 
 pub mod core;
+pub mod gfx;
 pub mod ui;
 pub mod util;
 
-pub struct Plugin;
+pub trait Plugin {
+  fn path(&self) -> PathBuf;
+  fn textures(&mut self) -> &mut dyn TextureLoader;
+  fn shaders(&mut self) -> &mut dyn ShaderLoader;
+  fn ui_models(&mut self) -> &mut dyn UiModelLoader;
+  fn ui_sources(&mut self) -> &mut dyn UiSourceLoader;
+  fn entity_models(&mut self) -> &mut dyn EntityModelLoader;
+}
 
 pub enum PluginLoadError {
   GeneralFailure(String),
 }
 
-pub type PluginResult = Result<Plugin, PluginLoadError>;
+pub type PluginResult = Result<(), PluginLoadError>;
+
+pub type PluginLoadFn = fn(&mut dyn Plugin) -> PluginResult;

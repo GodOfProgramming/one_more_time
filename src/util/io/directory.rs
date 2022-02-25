@@ -1,12 +1,5 @@
 use crate::util::prelude::*;
-use std::{
-  ffi::{OsStr, OsString},
-  fmt::Display,
-  ops::Deref,
-  path::PathBuf,
-  str::FromStr,
-  string::ToString,
-};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct ConfigDir {
@@ -70,77 +63,3 @@ impl Dirs {
 }
 
 impl AsPtr for Dirs {}
-
-#[derive(Default, Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
-pub struct DirID {
-  id: OsString,
-}
-
-impl DirID {
-  pub fn id(&self) -> &OsString {
-    &self.id
-  }
-
-  pub fn extend<T: AsRef<OsStr>>(&self, s: T) -> Self {
-    let mut copy = self.clone();
-    copy.id.push(".");
-    copy.id.push(s);
-    copy
-  }
-}
-
-impl Deref for DirID {
-  type Target = str;
-  fn deref(&self) -> &Self::Target {
-    self.id.to_str().unwrap_or_default()
-  }
-}
-
-impl Display for DirID {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-    write!(f, "{:?}", self.id)
-  }
-}
-
-impl From<PathBuf> for DirID {
-  fn from(path: PathBuf) -> Self {
-    let mut v = Vec::default();
-
-    for part in path.iter() {
-      v.push(part);
-    }
-
-    let mut id = std::ffi::OsString::default();
-
-    for i in 0..v.len() {
-      id.push(v[i]);
-      if i != v.len() - 1 {
-        id.push(".");
-      }
-    }
-
-    Self { id }
-  }
-}
-
-impl From<&str> for DirID {
-  fn from(id: &str) -> Self {
-    Self {
-      id: OsString::from(id),
-    }
-  }
-}
-
-impl From<String> for DirID {
-  fn from(id: String) -> Self {
-    Self {
-      id: OsString::from(id),
-    }
-  }
-}
-
-impl Into<String> for DirID {
-  fn into(self) -> String {
-    String::from(self.id.to_str().unwrap_or_default())
-  }
-}

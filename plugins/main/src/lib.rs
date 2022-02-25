@@ -6,8 +6,23 @@ use omt::{
   Plugin, PluginResult,
 };
 
-pub fn exports() -> PluginResult {
-  Ok(Plugin)
+use directory_iter::RecursiveDirIteratorWithID;
+
+mod directory_iter;
+
+pub fn exports(plugin: &mut dyn Plugin) -> PluginResult {
+  // textures
+  {
+    let iter = RecursiveDirIteratorWithID::from(plugin.path().join("tex"));
+    load_textures(plugin);
+  }
+
+  // shaders
+  {
+    load_shaders(plugin);
+  }
+
+  Ok(())
 }
 
 struct DebugMainMenu;
@@ -54,4 +69,29 @@ impl UiModelInstance for DebugMainMenu {
       _ => (),
     }
   }
+}
+
+pub fn load_textures(plugin: &mut dyn Plugin, iter: RecursiveDirIteratorWithID) -> PluginResult {
+  plugin.logger().info("loading textures".to_string());
+  for (path, id) in iter {
+    plugin.logger().info(format!("loading {}", id));
+    match Reader::open(&path) {
+      Ok(reader) => match reader.decode() {
+        Ok(image) => {
+          plugin.textures().register(id.to_string(), image);
+        }
+        Err(err) => plugin
+          .logger()
+          .error(format!("error decoding '{:?}': {}", path, err)),
+      },
+      Err(err) => plugin
+        .logger()
+        .error(format!("error reading '{:?}': {}", path, err)),
+    }
+  }
+  Ok(())
+}
+
+pub fn load_shaders(plugin: &mut dyn Plugin) -> PluginResult {
+  Ok(())
 }

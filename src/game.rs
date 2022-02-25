@@ -1,36 +1,30 @@
 mod cam;
 mod world;
 
-use std::{fs, path::PathBuf};
-
 use crate::{
   gfx::*,
+  glium::{self, backend::Context, Surface},
+  imgui,
   input::{
     keyboard::{Key, KeyAction},
     InputCheck, InputDevices,
   },
-  ui::UiManager,
+  ui::*,
   util::prelude::*,
   view::window::Window,
 };
-
-use omt::{
-  core::Game,
-  glium::{
-    self,
-    backend::Context,
-    debug::DebugCallbackBehavior,
-    debug::{MessageType, Severity, Source},
-    Surface,
-  },
-  imgui,
-  imgui_glium_renderer::Renderer,
-  puffin, puffin_imgui,
-  regex::Regex,
+use imgui_glium_renderer::Renderer;
+use libloading::Library;
+use omt::{core::Game, Plugin, PluginLoadFn};
+use puffin_imgui::ProfilerUi;
+use std::{
+  fs,
+  path::{Path, PathBuf},
+  rc::Rc,
 };
 
 pub use cam::Camera;
-use world::{EntityArchive, Map, MapData};
+use world::*;
 
 #[derive(PartialEq)]
 enum State {
@@ -41,46 +35,38 @@ enum State {
 pub struct App {
   logger: MainLogger,
   settings: Settings,
+  window: Window,
+  shader_archive: ShaderProgramArchive,
+  input_devices: InputDevices,
   state: State,
 }
 
 impl App {
-  pub fn new(logger: MainLogger, settings: Settings) -> Self {
+  pub fn new(logger: MainLogger, settings: Settings, window: Window) -> Self {
     Self {
       logger,
       settings,
+      window,
+      shader_archive: Default::default(),
+      input_devices: Default::default(),
       state: State::Starting,
     }
   }
 
-  pub fn run(&mut self, dirs: &Dirs, input_devices: &mut InputDevices) {
-    self.logger.info("creating window".to_string());
-    let (window, draw_interface) = Window::new(&mut self.settings);
-
-    self.logger.info("initializing opengl".to_string());
-    let behavior = App::create_opengl_debug_behavior(self.logger.spawn());
-    let gl_context = unsafe { Context::new(draw_interface, false, behavior).unwrap() };
-
-    self.logger.info("initializing shaders".to_string());
-    let mut shader_archive = ShaderProgramArchive::default();
-
+  pub fn run(mut self, dirs: Dirs, context: Rc<Context>) {
     self.logger.info("initializing models".to_string());
-    let model_repository = ModelRepository::new(&gl_context);
+    let model_repository = ModelRepository::new(&context);
 
     self.logger.info("initializing textures".to_string());
-    let mut texture_sources = TextureSources::default();
-    texture_sources.load_all(
-      &self.logger,
-      RecursiveDirIteratorWithID::from(&dirs.assets.textures),
-    );
-    let texture_repository = texture_sources.load_repository(&self.logger, &gl_context);
+    let texture_archive = TextureArchive::default();
 
-    self.logger.info("initializing ui".to_string());
+    self.logger.info("initializing imgui".to_string());
     let mut imgui_ctx = imgui::Context::create();
     imgui_ctx.set_log_filename(None);
-    let mut imgui_render = Renderer::init(&mut imgui_ctx, &gl_context.clone()).unwrap();
-    window.setup_imgui(&mut imgui_ctx);
+    let mut imgui_render = Renderer::init(&mut imgui_ctx, &context.clone()).unwrap();
+    self.window.setup_imgui(&mut imgui_ctx);
 
+    self.logger.info("initializing ui manager".to_string());
     let mut ui_manager = UiManager::new(self.logger.spawn());
 
     self.logger.info("initializing entities".to_string());
@@ -88,37 +74,35 @@ impl App {
 
     let mut fps_manager = FpsManager::new(self.settings.graphics.fps.into());
 
-    self.logger.info("loading ui".to_string());
-    ui_manager.load_ui(RecursiveDirIteratorWithID::from(&dirs.assets.ui));
+    let mut puffin_ui = ProfilerUi::default();
 
-    if cfg!(debug_assertions) {
-      self.logger.info("opening debug menu".to_string());
-      ui_manager.open("core.main_menu_bar", "debug_main_menu_bar");
-    }
+    let mut camera = Camera::default();
 
-    let mut puffin_ui = puffin_imgui::ProfilerUi::default();
+    self.load_plugins();
+
+    self.logger.info("opening debug menu".to_string());
+    // ui_manager.open("core.main_menu_bar", "debug_main_menu_bar");
 
     self.logger.info("creating map".to_string());
     let map_data = MapData {
       width: 0,
       height: 0,
     };
+
     let mut map = Map::new(
       map_data,
       self.logger.spawn(),
       entity_repository.as_ptr(),
-      shader_archive.as_ptr(),
+      self.shader_archive.as_ptr(),
       model_repository.as_ptr(),
-      texture_repository.as_ptr(),
+      texture_archive.as_ptr(),
     );
 
-    self.logger.info("spawning test character".to_string());
-    map.spawn("characters.test.square");
-
-    let mut camera = Camera::default();
+    // self.logger.info("spawning test character".to_string());
+    // map.spawn("main.characters.test.square");
 
     self.logger.info("showing window".to_string());
-    window.show();
+    self.window.show();
 
     let mut i: f32 = 0.0;
     'main: loop {
@@ -132,11 +116,13 @@ impl App {
 
       fps_manager.begin();
 
-      window.poll_events(input_devices, &mut imgui_ctx);
+      self
+        .window
+        .poll_events(&mut self.input_devices, &mut imgui_ctx);
 
       // pre prossess game logic
 
-      if input_devices.check(Key::Escape) == KeyAction::Press {
+      if self.input_devices.check(Key::Escape) == KeyAction::Press {
         break;
       }
 
@@ -150,7 +136,7 @@ impl App {
 
       // post process game logic
 
-      input_devices.new_frame();
+      self.input_devices.new_frame();
 
       imgui_ctx.io_mut().display_size = [
         self.settings.display.window.x as f32,
@@ -160,7 +146,7 @@ impl App {
       // render logic
 
       let mut frame = glium::Frame::new(
-        gl_context.clone(),
+        context.clone(),
         (
           self.settings.display.window.x,
           self.settings.display.window.y,
@@ -177,7 +163,7 @@ impl App {
 
       let ui: imgui::Ui<'_> = imgui_ctx.frame();
 
-      ui_manager.update(&ui, self);
+      ui_manager.update(&ui, &mut self);
 
       if self.settings.game.show_profiler {
         puffin_ui.window(&ui);
@@ -203,48 +189,6 @@ impl App {
     self.settings.save().unwrap();
   }
 
-  fn create_opengl_debug_behavior(child_logger: ChildLogger) -> DebugCallbackBehavior {
-    DebugCallbackBehavior::Custom {
-      synchronous: true,
-      callback: Box::new(
-        move |source: Source,
-              message_type: MessageType,
-              severity: Severity,
-              _ident: u32,
-              handled: bool,
-              message: &str| {
-          match severity {
-            glium::debug::Severity::Notification => {
-              child_logger.trace(format!(
-                "OpenGL Notification: source = {:?}, message type = {:?}, handled = {:?} -> {}",
-                source, message_type, handled, message
-              ));
-            }
-            glium::debug::Severity::Low => {
-              child_logger.info(format!(
-                "OpenGL Warning: source = {:?}, message type = {:?}, handled = {:?} -> {}",
-                source, message_type, handled, message
-              ));
-            }
-            glium::debug::Severity::Medium => {
-              child_logger.warn(format!(
-                "OpenGL Warning: source = {:?}, message type = {:?}, handled = {:?} -> {}",
-                source, message_type, handled, message
-              ));
-            }
-            glium::debug::Severity::High => {
-              child_logger.error(format!(
-                "OpenGL Error: source = {:?}, message type = {:?}, handled = {:?} -> {}",
-                source, message_type, handled, message
-              ));
-              std::process::exit(1);
-            }
-          }
-        },
-      ),
-    }
-  }
-
   fn load_plugins(&self) {
     let version: &str = env!("CARGO_PKG_VERSION");
 
@@ -252,15 +196,25 @@ impl App {
 
     if let Ok(entries) = fs::read_dir(&plugin_dir) {
       for entry in entries.flatten() {
-        if let Ok(meta) = entry.metadata() {
-          if meta.is_dir() {
-            let plugin_dir = plugin_dir.join(entry.path()).join(version);
-            if let Ok(entries) = fs::read_dir(&plugin_dir) {
-              for entry in entries.flatten() {
-                if let Err(err) = Lib::load_lib(&entry.path(), |_| Ok(())) {
-                  self
-                    .logger
-                    .error(format!("error loading {:?}: {}", entry, err));
+        if let Some(extension) = entry.path().extension().and_then(std::ffi::OsStr::to_str) {
+          // todo get string based on os
+          if extension != "dll" {
+            continue;
+          }
+
+          if let Ok(meta) = entry.metadata() {
+            if meta.is_dir() {
+              let plugin_dir = plugin_dir.join(entry.path()).join(version);
+              if let Ok(entries) = fs::read_dir(&plugin_dir) {
+                for entry in entries.flatten() {
+                  let result = Lib::load_lib(&entry.path(), |path: PathBuf, lib: &mut Library| {
+                    self.load_plugin(path, lib)
+                  });
+                  if let Err(err) = result {
+                    self
+                      .logger
+                      .error(format!("error loading {:?}: {}", entry, err));
+                  }
                 }
               }
             }
@@ -269,6 +223,19 @@ impl App {
       }
     }
   }
+
+  fn load_plugin(&self, path: PathBuf, lib: &mut Library) -> Result<(), libloading::Error> {
+    unsafe {
+      let loader = lib.get::<PluginLoadFn>(b"exports")?;
+      let mut module = Mod::new(path);
+      if loader(&mut module).is_ok() {
+        self.add_mod(module);
+      }
+    }
+    Ok(())
+  }
+
+  fn add_mod(&self, module: Mod) {}
 }
 
 impl Game for App {
@@ -282,3 +249,48 @@ impl Game for App {
 }
 
 impl AsPtr for App {}
+
+#[derive(Default)]
+struct Mod {
+  path: PathBuf,
+  images: ImageArchive,
+  shaders: ShaderSourceArchive,
+  ui_models: UiModelArchive,
+  ui_sources: UiTemplateSourceArchive,
+  entity_models: EntityModelArchive,
+}
+
+impl Mod {
+  fn new(path: PathBuf) -> Self {
+    Self {
+      path,
+      ..Default::default()
+    }
+  }
+}
+
+impl Plugin for Mod {
+  fn path(&self) -> std::path::PathBuf {
+    self.path.clone()
+  }
+
+  fn textures(&mut self) -> &mut dyn omt::gfx::TextureLoader {
+    &mut self.images
+  }
+
+  fn shaders(&mut self) -> &mut dyn omt::gfx::ShaderLoader {
+    &mut self.shaders
+  }
+
+  fn ui_models(&mut self) -> &mut dyn omt::ui::UiModelLoader {
+    &mut self.ui_models
+  }
+
+  fn ui_sources(&mut self) -> &mut dyn omt::ui::UiSourceLoader {
+    &mut self.ui_sources
+  }
+
+  fn entity_models(&mut self) -> &mut dyn omt::core::EntityModelLoader {
+    &mut self.entity_models
+  }
+}

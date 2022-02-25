@@ -5,6 +5,14 @@ use std::{
   rc::Rc,
 };
 
+pub trait UiModelLoader {
+  fn register(&mut self, name: String, model: Rc<dyn UiModel>);
+}
+
+pub trait UiSourceLoader {
+  fn register(&mut self, name: String, xml: String);
+}
+
 pub enum UiAttributeValue {
   Int(i64),
   Uint(u64),

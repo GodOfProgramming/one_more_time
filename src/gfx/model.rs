@@ -1,9 +1,11 @@
 use super::*;
-use crate::util::prelude::*;
-use omt::glium::{
-  backend::Facade,
-  index::{IndexBuffer, PrimitiveType},
-  vertex::VertexBuffer,
+use crate::{
+  glium::{
+    backend::Facade,
+    index::{IndexBuffer, PrimitiveType},
+    vertex::VertexBuffer,
+  },
+  util::prelude::*,
 };
 use std::{collections::BTreeMap, rc::Rc};
 

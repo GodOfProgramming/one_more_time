@@ -116,7 +116,8 @@ pub mod string {
 }
 
 pub mod path {
-  use omt::{lazy_static::lazy_static, regex::Regex};
+  use lazy_static::lazy_static;
+  use regex::Regex;
   use std::path::{Path, PathBuf};
 
   pub fn into_id(path: &Path) -> String {

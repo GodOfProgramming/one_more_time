@@ -1,71 +1,67 @@
-use crate::util::prelude::*;
-use omt::{
-  image::{io::Reader, RgbaImage},
-  imgui_glium_renderer::glium::{
+use crate::{
+  glium::{
     backend::Facade,
     texture::{RawImage2d, SrgbTexture2d},
   },
+  util::prelude::*,
 };
-use std::{collections::BTreeMap, path::PathBuf, rc::Rc};
+use omt::{gfx::TextureLoader, image::RgbaImage};
+use std::{collections::BTreeMap, rc::Rc};
 
-#[derive(Default)]
-pub struct TextureSources {
-  images: BTreeMap<DirID, RgbaImage>,
+pub enum TextureLoadError {
+  Standard(String),
 }
 
-impl TextureSources {
-  pub fn load_all<L, I>(&mut self, logger: &L, iter: I)
-  where
-    L: Logger,
-    I: Iterator<Item = (PathBuf, DirID)>,
-  {
-    logger.info("loading textures".to_string());
-    for (path, id) in iter {
-      logger.info(format!("loading {}", id));
-      match Reader::open(&path) {
-        Ok(reader) => match reader.decode() {
-          Ok(image) => {
-            self.images.insert(id, image.to_rgba8());
-          }
-          Err(err) => logger.error(format!("error decoding '{:?}': {}", path, err)),
-        },
-        Err(err) => logger.error(format!("error reading '{:?}': {}", path, err)),
-      }
-    }
-  }
+#[derive(Default)]
+pub struct ImageArchive {
+  images: BTreeMap<String, RgbaImage>,
+}
 
-  pub fn load_repository<L, F>(self, logger: &L, facade: &F) -> TextureRepository
-  where
-    L: Logger,
-    F: Facade,
-  {
-    let mut tex_repo = TextureRepository::default();
-
-    for (id, img) in self.images {
-      let dim = img.dimensions();
-      let raw_img: RawImage2d<u8> = RawImage2d::from_raw_rgba_reversed(&img.into_raw(), dim);
-
-      match SrgbTexture2d::new(facade, raw_img) {
-        Ok(tex) => {
-          tex_repo.textures.insert(id.into(), Rc::new(tex));
-        }
-        Err(err) => logger.error(format!("could not convert {} to srgb tex: {:?}", id, err)),
-      }
-    }
-
-    tex_repo
+impl TextureLoader for ImageArchive {
+  fn register(&mut self, name: String, image: RgbaImage) {
+    self.images.insert(name, image);
   }
 }
 
 #[derive(Default)]
-pub struct TextureRepository {
+pub struct TextureArchive {
   textures: BTreeMap<String, Rc<SrgbTexture2d>>,
 }
 
-impl TextureRepository {
+impl TextureArchive {
+  pub fn add_image_archive<L: Logger, F: Facade>(
+    &mut self,
+    archive: ImageArchive,
+    facade: &F,
+  ) -> Result<(), Vec<TextureLoadError>> {
+    let mut errors = Vec::default();
+
+    for (id, img) in archive.images {
+      let dim = img.dimensions();
+      let raw_img: RawImage2d<u8> = RawImage2d::from_raw_rgba_reversed(&img.into_raw(), dim);
+
+      let result = SrgbTexture2d::new(facade, raw_img).map_err(|err| {
+        TextureLoadError::Standard(format!("could not convert {} to srgb tex: {:?}", id, err))
+      });
+
+      match result {
+        Ok(tex) => {
+          self.textures.insert(id.into(), Rc::new(tex));
+        }
+        Err(err) => errors.push(err),
+      }
+    }
+
+    if errors.is_empty() {
+      Ok(())
+    } else {
+      Err(errors)
+    }
+  }
+
   pub fn get(&self, id: &str) -> Option<Rc<SrgbTexture2d>> {
     self.textures.get(id).cloned()
   }
 }
 
-impl AsPtr for TextureRepository {}
+impl AsPtr for TextureArchive {}

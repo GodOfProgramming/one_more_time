@@ -7,9 +7,45 @@ edition = "2021"
 
 [dependencies]
 
-# public
 omt = { path = "omt" }
 
+# steamworks = "0.8.0"
+
+# windowing/ui
+glfw = "0.43.0"
+imgui-glium-renderer = "0.8.2"
+
+# threading
+scheduled-thread-pool = "0.2.5"
+
+regex = "1.5.4"
+uid = "0.1.7"
+walkdir = "2.3.2"
+
+# data
+xml-rs = "0.8.4"
+
+# logging
+chrono = "0.4.19"
+fern = "0.6.0"
+log = "0.4.14"
+
+# ffi
+libloading = "0.7.3"
+chlorine = "1.0.9"
+
+# util
+dyn-clone = "1.0.4"
+lazy_static = "1.4.0"
+maplit = "1.0.2"
 enum-map = "1.1.1"
 strum = "0.22.0"
 strum_macros = "0.22"
+
+# dev util
+profiling = "1.0.5"
+puffin = "0.13.1"
+puffin-imgui = "0.16.0"
+
+# testing
+double = "0.2.4"

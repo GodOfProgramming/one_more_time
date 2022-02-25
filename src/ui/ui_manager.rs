@@ -1,23 +1,35 @@
 use super::{common::*, UiComponentInstance, UiPtr, UiTemplate};
-use crate::util::prelude::*;
-use omt::{imgui_glium_renderer::imgui::Ui, profiling, ui::UiModel};
-use std::{collections::BTreeMap, path::PathBuf};
+use crate::{imgui::Ui, util::prelude::*};
+use omt::ui::{UiModel, UiModelLoader, UiSourceLoader};
+use profiling;
+use std::collections::BTreeMap;
 
 #[derive(Default)]
 pub struct UiModelArchive {
   models: BTreeMap<String, Rc<dyn UiModel>>,
 }
 
-impl UiModelArchive {
-  pub fn lookup(&self, name: &str) -> Option<Rc<dyn UiModel>> {
-    self.models.get(name).cloned()
+impl UiModelLoader for UiModelArchive {
+  fn register(&mut self, name: String, model: Rc<dyn UiModel>) {
+    self.models.insert(name, model);
+  }
+}
+
+#[derive(Default)]
+pub struct UiTemplateSourceArchive {
+  xml: BTreeMap<String, String>,
+}
+
+impl UiSourceLoader for UiTemplateSourceArchive {
+  fn register(&mut self, name: String, xml: String) {
+    self.xml.insert(name, xml);
   }
 }
 
 pub struct UiManager {
   logger: ChildLogger,
-  archive: UiModelArchive,
-  templates: BTreeMap<DirID, UiTemplate>,
+  models: BTreeMap<String, Rc<dyn UiModel>>,
+  templates: BTreeMap<String, UiTemplate>,
   open_ui: BTreeMap<String, UiPtr>,
 }
 
@@ -25,38 +37,32 @@ impl UiManager {
   pub fn new(logger: ChildLogger) -> Self {
     Self {
       logger,
-      archive: Default::default(),
+      models: Default::default(),
       templates: Default::default(),
       open_ui: Default::default(),
     }
   }
 
-  pub fn load_ui<I>(&mut self, iter: I)
-  where
-    I: Iterator<Item = (PathBuf, DirID)>,
-  {
-    self.logger.debug("loading ui".to_string());
+  pub fn add_model_archive(&mut self, archive: UiModelArchive) {
+    for (id, model) in archive.models {
+      self.models.insert(id, model);
+    }
+  }
 
-    for (entry, id) in iter {
-      self.logger.debug(format!("reading entry {:?}", entry));
-      if let Ok(xml) = std::fs::read_to_string(&entry) {
-        if let Ok(mut nodes) = XmlNode::parse(&xml) {
-          if let Some(node) = nodes.drain(..).next() {
-            self
-              .templates
-              .insert(id, UiTemplate::new(node, &self.archive, &self.logger));
-          } else {
-            self.logger.error(format!("xml {:?} was empty", entry));
-          }
-        } else {
+  pub fn add_template_archive(&mut self, archive: UiTemplateSourceArchive) {
+    for (id, source) in archive.xml {
+      if let Ok(mut nodes) = XmlNode::parse(&source) {
+        if let Some(node) = nodes.drain(..).next() {
           self
-            .logger
-            .error(format!("failed to parse xml for {:?}", entry));
+            .templates
+            .insert(id, UiTemplate::new(node, &self.models, &self.logger));
+        } else {
+          self.logger.error(format!("xml {:?} was empty", id));
         }
       } else {
         self
           .logger
-          .error(format!("unable to read file {:?}", entry));
+          .error(format!("failed to parse xml for {:?}", id));
       }
     }
   }
@@ -69,7 +75,7 @@ impl UiManager {
   }
 
   pub fn open(&mut self, id: &str, name: &str) -> Option<MutPtr<UiComponentInstance>> {
-    if let Some(tmpl) = self.templates.get(&DirID::from(id)) {
+    if let Some(tmpl) = self.templates.get(id) {
       let mut component = tmpl.create_component(&self.logger);
       let ptr = component.as_ptr_mut();
       self.open_ui.insert(name.to_string(), component);

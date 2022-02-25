@@ -1,5 +1,6 @@
 use super::common::*;
-use omt::{regex::Regex, toml::Value};
+use omt::toml::Value;
+use regex::Regex;
 use std::str::FromStr;
 
 mod keys {

@@ -1,18 +1,18 @@
-use crate::input::{
-  keyboard::{Key, KeyAction, KeyEvent},
-  mouse::{ButtonAction, MouseButtonEvent},
-  InputDevices, InputProcessor,
-};
-use crate::util::Settings;
-use omt::{
-  chlorine,
-  glfw::{
-    self, Context, Glfw, Monitor, OpenGlProfileHint, VidMode, Window as GlfwWindow, WindowEvent,
-    WindowHint,
-  },
+use crate::{
   glium::{self, backend::Backend},
-  imgui_glium_renderer::imgui,
+  input::{
+    keyboard::{Key, KeyAction, KeyEvent},
+    mouse::{ButtonAction, MouseButtonEvent},
+    InputDevices, InputProcessor,
+  },
+  util::Settings,
 };
+use chlorine;
+use glfw::{
+  self, Context, Glfw, Monitor, OpenGlProfileHint, VidMode, Window as GlfwWindow, WindowEvent,
+  WindowHint,
+};
+use imgui_glium_renderer::imgui;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;

@@ -1,11 +1,9 @@
 use crate::util::prelude::*;
+use chrono::Local;
+use fern::{self, InitError};
+use log::LevelFilter;
+use log::{debug, error, info, trace, warn};
 pub use omt::util::Logger;
-use omt::{
-  chrono::Local,
-  fern::{self, InitError},
-  log::LevelFilter,
-  log::{debug, error, info, trace, warn},
-};
 use std::{
   ffi::OsString,
   fs::{self, OpenOptions},

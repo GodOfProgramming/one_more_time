@@ -2,7 +2,7 @@ pub use self::{
   convert::*,
   external::Lib,
   fps::FpsManager,
-  io::{DirID, Dirs, RecursiveDirIterator, RecursiveDirIteratorWithID},
+  io::Dirs,
   logging::{ChildLogger, Logger, MainLogger, SpawnableLogger},
   ptr::*,
   settings::Settings,

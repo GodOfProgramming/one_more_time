@@ -1,14 +1,13 @@
-use crate::util::prelude::*;
-use omt::{
-  core::{ShaderLoader, ShaderSource},
+use crate::{
   glium::{
     backend::Context,
     program::{Program, ProgramCreationError},
   },
-  lazy_static::lazy_static,
-  regex::Regex,
-  toml::Value,
+  util::prelude::*,
 };
+use lazy_static::lazy_static;
+use omt::gfx::{ShaderLoader, ShaderSource};
+use regex::Regex;
 use std::{
   collections::{BTreeMap, BTreeSet},
   fs,

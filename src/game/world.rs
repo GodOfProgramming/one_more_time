@@ -1,11 +1,13 @@
 use super::Camera;
-use crate::{gfx::*, math::glm::Mat4, util::prelude::*};
-use omt::{
-  core::{EntityHandle, EntityInstance, EntityModel},
+use crate::{
+  gfx::*,
   glium::{texture::SrgbTexture2d, uniform, Surface},
-  uid::Id,
+  math::glm::Mat4,
+  util::prelude::*,
 };
+use omt::core::{EntityHandle, EntityInstance, EntityModel, EntityModelLoader};
 use std::{collections::BTreeMap, rc::Rc};
+use uid::Id;
 
 mod keys {
   pub const CLASS: &str = "class";
@@ -14,10 +16,21 @@ mod keys {
   pub const TEXTURE: &str = "texture";
 }
 
+#[derive(Default)]
+pub struct EntityModelArchive {
+  models: BTreeMap<String, Box<dyn EntityModel>>,
+}
+
+impl EntityModelLoader for EntityModelArchive {
+  fn register(&mut self, name: String, model: Box<dyn EntityModel>) {
+    self.models.insert(name, model);
+  }
+}
+
 type EntityId = Id<()>;
 
 pub struct EntityArchive {
-  templates: BTreeMap<String, Rc<EntityTemplate>>,
+  templates: BTreeMap<String, EntityTemplate>,
   logger: ChildLogger,
 }
 
@@ -29,7 +42,16 @@ impl EntityArchive {
     }
   }
 
-  pub fn register(name: &str) {}
+  pub fn add_model_archive(&mut self, archive: EntityModelArchive) {
+    for (id, model) in archive.models {
+      self.create_template(id, model)
+    }
+  }
+
+  pub fn create_template(&mut self, id: String, model: Box<dyn EntityModel>) {
+    let template = EntityTemplate::new(model);
+    self.templates.insert(id, template);
+  }
 
   pub fn construct(
     &self,
@@ -37,24 +59,28 @@ impl EntityArchive {
     map: MutPtr<Map>,
     shaders: &ShaderProgramArchive,
     models: &ModelRepository,
-    textures: &TextureRepository,
+    textures: &TextureArchive,
   ) -> Result<Entity, String> {
     if let Some(tmpl) = self.templates.get(item_id) {
       let id = Id::new();
-      let instance = tmpl.entity_model.new_instance();
+      let instance = tmpl.model.new_instance();
       let mut entity = Entity::new(id, map, instance);
 
       if let Some(shader) = &tmpl.shader {
-        entity.shader = Some(shader.clone());
-        if let Some(model) = &tmpl.model {
-          if let Some(model) = models.get(model) {
-            entity.model = Some(model.clone());
-            if let Some(texture) = &tmpl.texture {
-              if let Some(texture) = textures.get(texture) {
-                entity.texture = Some(texture.clone());
-              }
-            }
-          }
+        if let Some(shader) = shaders.get(shader) {
+          entity.shader = Some(shader.clone());
+        }
+      }
+
+      if let Some(model) = &tmpl.shape {
+        if let Some(model) = models.get(model) {
+          entity.model = Some(model.clone());
+        }
+      }
+
+      if let Some(texture) = &tmpl.sprite {
+        if let Some(texture) = textures.get(texture) {
+          entity.texture = Some(texture.clone());
         }
       }
 
@@ -68,10 +94,25 @@ impl EntityArchive {
 impl AsPtr for EntityArchive {}
 
 pub struct EntityTemplate {
-  entity_model: Box<dyn EntityModel>,
-  shader: Option<Rc<Shader>>,
-  model: Option<String>,
-  texture: Option<String>,
+  model: Box<dyn EntityModel>,
+  shader: Option<&'static str>,
+  shape: Option<&'static str>,
+  sprite: Option<&'static str>,
+}
+
+impl EntityTemplate {
+  fn new(model: Box<dyn EntityModel>) -> Self {
+    let shader = model.shader();
+    let shape = model.shape();
+    let sprite = model.sprite();
+
+    Self {
+      model,
+      shader,
+      shape,
+      sprite,
+    }
+  }
 }
 
 pub struct Entity {
@@ -178,7 +219,7 @@ pub struct Map {
   entities: ConstPtr<EntityArchive>,
   shaders: ConstPtr<ShaderProgramArchive>,
   models: ConstPtr<ModelRepository>,
-  textures: ConstPtr<TextureRepository>,
+  textures: ConstPtr<TextureArchive>,
 }
 
 impl Map {
@@ -188,7 +229,7 @@ impl Map {
     entities: ConstPtr<EntityArchive>,
     shaders: ConstPtr<ShaderProgramArchive>,
     models: ConstPtr<ModelRepository>,
-    textures: ConstPtr<TextureRepository>,
+    textures: ConstPtr<TextureArchive>,
   ) -> Self {
     let tiles = vec![Tile; data.width * data.height];
     Self {

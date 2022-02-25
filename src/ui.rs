@@ -1,13 +1,13 @@
+use crate::imgui;
 use common::*;
+use dyn_clone::{self, DynClone};
 pub use omt::{
   core::Game,
-  dyn_clone::{self, DynClone},
-  imgui,
   ui::{Document, StaticUi, UiElement, UiModel, UiModelInstance},
 };
 use std::collections::{BTreeMap, HashMap};
 
-pub use ui_manager::{UiManager, UiModelArchive};
+pub use ui_manager::{UiManager, UiModelArchive, UiTemplateSourceArchive};
 pub mod main_menu_bar;
 pub mod menu;
 pub mod menu_item;
@@ -29,12 +29,12 @@ pub mod common {
   pub use super::{
     types, SubElementMap, UiComponent, UiComponentPtr, UiElementParent, UiElementPtr,
   };
-  pub use crate::{type_map, util::prelude::*};
+  pub use crate::{imgui::ImStr, type_map, util::prelude::*};
+  pub use imgui_glium_renderer::imgui;
+  pub use lazy_static::lazy_static;
+  pub use maplit::hashmap;
   pub use omt::{
     core::Game,
-    imgui::{self, ImStr},
-    lazy_static::lazy_static,
-    maplit::hashmap,
     ui::{UiAttributeValue, UiElement, UiModelInstance},
   };
   pub use std::{cell::RefCell, collections::BTreeMap, ffi::CString, rc::Rc};
@@ -130,9 +130,13 @@ impl Default for UiTemplate {
 }
 
 impl UiTemplate {
-  pub fn new<L: Logger>(node: XmlNode, models: &UiModelArchive, logger: &L) -> Self {
+  pub fn new<L: Logger>(
+    node: XmlNode,
+    models: &BTreeMap<String, Rc<dyn UiModel>>,
+    logger: &L,
+  ) -> Self {
     let mut root = UiTemplate::default();
-    if let Some(model) = models.lookup(&node.name) {
+    if let Some(model) = models.get(&node.name) {
       root.model = model.clone();
       for node in node.children {
         if let Some(f) = Self::valid_children().get(node.name.as_str()) {

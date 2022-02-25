@@ -1,5 +1,5 @@
-use omt::xml::{reader::XmlEvent, EventReader};
 use std::{collections::BTreeMap, io::BufReader};
+use xml::{reader::XmlEvent, EventReader};
 
 #[derive(Default, Debug)]
 pub struct XmlNode {
