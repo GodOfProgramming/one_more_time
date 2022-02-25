@@ -29,7 +29,7 @@ pub struct TextureArchive {
 }
 
 impl TextureArchive {
-  pub fn add_image_archive<L: Logger, F: Facade>(
+  pub fn add_image_archive<F: Facade>(
     &mut self,
     archive: ImageArchive,
     facade: &F,

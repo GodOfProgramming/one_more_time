@@ -3,6 +3,7 @@ use crate::{glm, util::*};
 pub trait Game {
   fn settings(&mut self) -> &mut dyn Settings;
   fn logger(&self) -> &dyn Logger;
+  fn exit(&mut self);
 }
 
 pub trait EntityModelLoader {

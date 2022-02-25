@@ -43,6 +43,9 @@ impl UiModelInstance for DebugMainMenu {
           }),
         );
       }
+      "on_exit" => {
+        game.exit();
+      }
       _ => (),
     }
   }

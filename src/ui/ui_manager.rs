@@ -55,8 +55,10 @@ impl UiManager {
 
   pub fn add_template_archive(&mut self, archive: UiTemplateSourceArchive) {
     for (id, source) in archive.xml {
+      println!("adding '{}'", id);
       if let Ok(mut nodes) = XmlNode::parse(&source) {
         if let Some(node) = nodes.drain(..).next() {
+          println!("added '{}'", id);
           self
             .templates
             .insert(id, UiTemplate::new(node, &self.models, &self.logger));
@@ -85,6 +87,7 @@ impl UiManager {
       self.open_ui.insert(name.to_string(), component);
       Some(ptr)
     } else {
+      println!("couldn't find '{}'", id);
       None
     }
   }

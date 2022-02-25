@@ -33,6 +33,7 @@ pub struct App {
   logger: MainLogger,
   settings: Settings,
   window: Window,
+  texture_archive: TextureArchive,
   shader_archive: ShaderProgramArchive,
   input_devices: InputDevices,
   state: State,
@@ -45,6 +46,7 @@ impl App {
       logger,
       settings,
       window,
+      texture_archive: Default::default(),
       shader_archive: Default::default(),
       input_devices: Default::default(),
       state: State::Starting,
@@ -54,9 +56,6 @@ impl App {
   pub fn run(mut self, context: Rc<Context>) {
     self.logger.info("initializing models".to_string());
     let model_repository = ModelRepository::new(&context);
-
-    self.logger.info("initializing textures".to_string());
-    let texture_archive = TextureArchive::default();
 
     self.logger.info("initializing imgui".to_string());
     let mut imgui_ctx = imgui::Context::create();
@@ -68,7 +67,7 @@ impl App {
     let mut ui_manager = UiManager::new(self.logger.spawn());
 
     self.logger.info("initializing entities".to_string());
-    let entity_repository = EntityArchive::new(self.logger.spawn());
+    let mut entity_archive = EntityArchive::new(self.logger.spawn());
 
     let mut fps_manager = FpsManager::new(self.settings.graphics.fps.into());
 
@@ -76,10 +75,10 @@ impl App {
 
     let mut camera = Camera::default();
 
-    self.load_plugins();
+    self.load_plugins(&mut ui_manager, context.clone(), &mut entity_archive);
 
     self.logger.info("opening debug menu".to_string());
-    // ui_manager.open("core.main_menu_bar", "debug_main_menu_bar");
+    ui_manager.open("\"core.main_menu_bar\"", "debug_main_menu_bar");
 
     self.logger.info("creating map".to_string());
     let map_data = MapData {
@@ -90,10 +89,10 @@ impl App {
     let mut map = Map::new(
       map_data,
       self.logger.spawn(),
-      entity_repository.as_ptr(),
+      entity_archive.as_ptr(),
       self.shader_archive.as_ptr(),
       model_repository.as_ptr(),
-      texture_archive.as_ptr(),
+      self.texture_archive.as_ptr(),
     );
 
     // self.logger.info("spawning test character".to_string());
@@ -187,7 +186,12 @@ impl App {
     self.settings.save().unwrap();
   }
 
-  fn load_plugins(&self) {
+  fn load_plugins(
+    &mut self,
+    ui_manager: &mut UiManager,
+    ctx: Rc<Context>,
+    entity_archive: &mut EntityArchive,
+  ) {
     let version: &str = env!("CARGO_PKG_VERSION");
 
     if let Ok(entries) = fs::read_dir(&self.dirs.plugins) {
@@ -211,9 +215,14 @@ impl App {
 
                   self.logger.debug("dll found, loading".to_string());
 
-                  let plugin_dir = plugin_dir.clone();
                   let result = Lib::load_lib(&entry.path(), |lib: &mut Library| {
-                    self.load_plugin(plugin_dir, lib)
+                    self.load_plugin(
+                      plugin_dir.clone(),
+                      lib,
+                      ui_manager,
+                      ctx.clone(),
+                      entity_archive,
+                    )
                   });
 
                   if let Err(err) = result {
@@ -230,19 +239,39 @@ impl App {
     }
   }
 
-  fn load_plugin(&self, path: PathBuf, lib: &mut Library) -> Result<(), libloading::Error> {
+  fn load_plugin(
+    &mut self,
+    path: PathBuf,
+    lib: &mut Library,
+    ui_manager: &mut UiManager,
+    ctx: Rc<Context>,
+    entity_archive: &mut EntityArchive,
+  ) -> Result<(), libloading::Error> {
     unsafe {
       let loader = lib.get::<PluginLoadFn>(b"exports")?;
       let mut module = Mod::new(path, self.logger.spawn());
       if loader(&mut module).is_ok() {
-        self.add_mod(module);
+        self.add_mod(module, ui_manager, ctx, entity_archive);
       }
     }
     Ok(())
   }
 
-  fn add_mod(&self, module: Mod) {
-    // todo once lib loading works
+  fn add_mod(
+    &mut self,
+    module: Mod,
+    ui_manager: &mut UiManager,
+    ctx: Rc<Context>,
+    entity_archive: &mut EntityArchive,
+  ) {
+    ui_manager.add_model_archive(module.ui_models);
+    ui_manager.add_template_archive(module.ui_sources);
+    // todo check results
+    let _ = self.texture_archive.add_image_archive(module.images, &ctx);
+    self
+      .shader_archive
+      .add_source_archive(&self.logger, module.shaders, ctx);
+    entity_archive.add_model_archive(module.entity_models);
   }
 }
 
@@ -253,6 +282,10 @@ impl Game for App {
 
   fn logger(&self) -> &dyn omt::util::Logger {
     &self.logger
+  }
+
+  fn exit(&mut self) {
+    self.state = State::Exiting;
   }
 }
 
