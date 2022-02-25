@@ -151,8 +151,8 @@ impl From<glfw::Action> for KeyAction {
   fn from(action: glfw::Action) -> Self {
     match action {
       glfw::Action::Press => KeyAction::Press,
+      glfw::Action::Repeat => KeyAction::Press,
       glfw::Action::Release => KeyAction::Release,
-      _ => KeyAction::None,
     }
   }
 }
@@ -178,20 +178,26 @@ impl KeyEvent {
 #[derive(Default)]
 pub struct Keyboard {
   key_states: EnumMap<Key, KeyAction>,
+  frame_states: EnumMap<Key, KeyAction>,
 }
 
 impl Keyboard {
   pub fn new_frame(&mut self) {
     for i in Key::iter() {
-      self.key_states[i] = KeyAction::None;
+      self.frame_states[i] = KeyAction::None;
     }
   }
 
   pub fn process(&mut self, event: KeyEvent) {
     self.key_states[event.key] = event.action;
+    self.frame_states[event.key] = event.action;
   }
 
   pub fn check(&self, key: Key) -> KeyAction {
     self.key_states[key]
+  }
+
+  pub fn check_current_frame(&self, key: Key) -> KeyAction {
+    self.frame_states[key]
   }
 }

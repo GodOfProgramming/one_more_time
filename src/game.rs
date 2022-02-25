@@ -7,7 +7,7 @@ use crate::{
   imgui,
   input::{
     keyboard::{Key, KeyAction},
-    InputCheck, InputDevices,
+    FrameCheck, InputCheck, InputDevices,
   },
   ui::*,
   util::prelude::*,
@@ -73,7 +73,7 @@ impl App {
 
     let mut puffin_ui = ProfilerUi::default();
 
-    let mut camera = Camera::default();
+    let mut camera = Camera::new();
 
     self.load_plugins(&mut ui_manager, context.clone(), &mut entity_archive);
 
@@ -118,11 +118,27 @@ impl App {
 
       // pre process game logic
 
-      if self.input_devices.check(Key::Escape) == KeyAction::Press {
+      if self.input_devices.check_current_frame(Key::Escape) == KeyAction::Press {
         break;
       }
 
       // game logic
+
+      if self.input_devices.check(Key::UpArrow) == KeyAction::Press {
+        camera.move_up();
+      }
+
+      if self.input_devices.check(Key::DownArrow) == KeyAction::Press {
+        camera.move_down();
+      }
+
+      if self.input_devices.check(Key::LeftArrow) == KeyAction::Press {
+        camera.move_left();
+      }
+
+      if self.input_devices.check(Key::RightArrow) == KeyAction::Press {
+        camera.move_right();
+      }
 
       map.update();
 

@@ -12,6 +12,10 @@ pub trait InputCheck<T, A> {
   fn check(&self, kind: T) -> A;
 }
 
+pub trait FrameCheck<T, A> {
+  fn check_current_frame(&self, kind: T) -> A;
+}
+
 #[derive(Default)]
 pub struct InputDevices {
   keyboard: Keyboard,
@@ -34,6 +38,12 @@ impl InputProcessor<KeyEvent> for InputDevices {
 impl InputCheck<Key, KeyAction> for InputDevices {
   fn check(&self, key: Key) -> KeyAction {
     self.keyboard.check(key)
+  }
+}
+
+impl FrameCheck<Key, KeyAction> for InputDevices {
+  fn check_current_frame(&self, key: Key) -> KeyAction {
+    self.keyboard.check_current_frame(key)
   }
 }
 
