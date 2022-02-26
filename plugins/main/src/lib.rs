@@ -1,6 +1,6 @@
 use directory_iter::RecursiveDirIteratorWithID;
 use game::TestModel;
-use omt::{gfx::ShaderSource, image::io::Reader, Plugin, PluginResult};
+use omt::{image::io::Reader, Plugin, PluginResult};
 use std::{fs, rc::Rc};
 use ui::DebugMainMenu;
 
@@ -8,9 +8,11 @@ mod directory_iter;
 mod game;
 mod ui;
 
+/// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn exports(plugin: *mut dyn Plugin) -> PluginResult {
-  let mut plugin = unsafe { Box::from_raw(plugin) };
+  let mut plugin = Box::from_raw(plugin);
+
   // entities
   {
     load_entities(&mut plugin);
@@ -18,18 +20,19 @@ pub unsafe extern "C" fn exports(plugin: *mut dyn Plugin) -> PluginResult {
 
   // textures
   {
-    let iter = RecursiveDirIteratorWithID::from(plugin.path().join("tex"));
+    let iter = RecursiveDirIteratorWithID::new(&plugin.path().join("tex"));
     load_textures(&mut plugin, iter);
   }
 
   // shaders
   {
-    load_shaders(&mut plugin);
+    let iter = RecursiveDirIteratorWithID::new_with_ext(&plugin.path().join("shaders"));
+    load_shaders(&mut plugin, iter);
   }
 
   // ui
   {
-    let iter = RecursiveDirIteratorWithID::from(plugin.path().join("ui"));
+    let iter = RecursiveDirIteratorWithID::new(&plugin.path().join("ui"));
     load_ui(&mut plugin, iter);
   }
 
@@ -62,10 +65,16 @@ pub fn load_textures(plugin: &mut Box<dyn Plugin>, iter: RecursiveDirIteratorWit
   }
 }
 
-pub fn load_shaders(plugin: &mut Box<dyn Plugin>) {
-  let shader_dir = plugin.path().join("shaders");
-  let shader = ShaderSource::new(&shader_dir.join("basic.vs"), &shader_dir.join("basic.fs"));
-  plugin.shaders().register("basic", shader);
+pub fn load_shaders(plugin: &mut Box<dyn Plugin>, iter: RecursiveDirIteratorWithID) {
+  plugin
+    .shaders()
+    .register_shader("basic", "main.basic.vs", "main.basic.fs");
+
+  for (id, file) in iter {
+    if let Ok(source) = fs::read_to_string(file) {
+      plugin.shaders().register(&id, &source);
+    }
+  }
 }
 
 pub fn load_ui(plugin: &mut Box<dyn Plugin>, iter: RecursiveDirIteratorWithID) {

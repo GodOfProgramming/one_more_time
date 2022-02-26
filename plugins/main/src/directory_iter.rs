@@ -147,18 +147,31 @@ pub struct RecursiveDirIteratorWithID {
   idx: usize,
 }
 
-impl From<&PathBuf> for RecursiveDirIteratorWithID {
-  fn from(path: &PathBuf) -> Self {
+impl RecursiveDirIteratorWithID {
+  pub fn new(path: &Path) -> Self {
+    Self::build(path, false)
+  }
+
+  pub fn new_with_ext(path: &Path) -> Self {
+    Self::build(path, true)
+  }
+
+  fn build(path: &Path, with_ext: bool) -> Self {
     let mut dirs = Vec::new();
 
     for result in WalkDir::new(path) {
       let entry: DirEntry = result.unwrap();
       if entry.file_type().is_file() {
-        let entry_suffix = entry.path().strip_prefix(path).unwrap();
-        let mut entry_cpy = entry_suffix.to_path_buf();
-        entry_cpy.pop();
-        let last = entry.path().file_stem().unwrap();
-        let id = entry_cpy.join(last);
+        let mut entry_suffix = entry.path().strip_prefix(path).unwrap().to_path_buf();
+        entry_suffix.pop();
+
+        let last = if with_ext {
+          entry.file_name()
+        } else {
+          entry.path().file_stem().unwrap()
+        };
+
+        let id = entry_suffix.join(last);
         dirs.push((DirID::convert_to_string(id), entry.path().to_path_buf()));
       }
     }
@@ -166,12 +179,6 @@ impl From<&PathBuf> for RecursiveDirIteratorWithID {
     let dirs = dirs.into_iter().rev().collect();
 
     Self { dirs, idx: 0 }
-  }
-}
-
-impl From<PathBuf> for RecursiveDirIteratorWithID {
-  fn from(path: PathBuf) -> Self {
-    Self::from(&path)
   }
 }
 

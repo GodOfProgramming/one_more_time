@@ -1,4 +1,4 @@
-#import "version_directive.glsl"
+#import "main.version_directive.glsl"
 
 in vec2 tex_coords;
 in vec3 color;

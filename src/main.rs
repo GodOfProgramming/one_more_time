@@ -28,7 +28,7 @@ fn main() {
 
   let logger = MainLogger::new(LOG_LIMIT);
 
-  let cwd = env::current_dir().unwrap(); // unwrap because there's bigger problems if this doesn't work
+  let cwd = env::current_dir().unwrap();
   let dirs = Dirs::new(cwd);
   let settings_file = Path::new(SETTINGS_FILE);
   let mut settings = Settings::load(settings_file).unwrap();

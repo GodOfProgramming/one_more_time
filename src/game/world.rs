@@ -1,8 +1,7 @@
 use super::Camera;
 use crate::{
   gfx::*,
-  glium::{texture::SrgbTexture2d, uniform, Surface},
-  math::glm::Mat4,
+  glium::{texture::SrgbTexture2d, uniform, Program, Surface},
   util::prelude::*,
 };
 use omt::core::{EntityHandle, EntityInstance, EntityModel, EntityModelLoader};
@@ -121,7 +120,7 @@ pub struct Entity {
 
   instance: Box<dyn EntityInstance>,
 
-  shader: Option<Rc<Shader>>,
+  shader: Option<Rc<Program>>,
   model: Option<Rc<Model>>,
   texture: Option<Rc<SrgbTexture2d>>,
 }

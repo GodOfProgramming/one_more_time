@@ -1,5 +1,5 @@
-#import "version_directive.glsl"
-#import "vertex_layout.glsl"
+#import "main.version_directive.glsl"
+#import "main.vertex_layout.glsl"
 
 out vec2 tex_coords;
 out vec3 color;

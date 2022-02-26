@@ -17,7 +17,7 @@ use imgui_glium_renderer::Renderer;
 use libloading::Library;
 use omt::{core::Game, Plugin, PluginLoadFn};
 use puffin_imgui::ProfilerUi;
-use std::{fs, path::PathBuf, rc::Rc};
+use std::{ffi::OsStr, fs, path::PathBuf, rc::Rc};
 
 pub use cam::Camera;
 use world::*;
@@ -76,6 +76,8 @@ impl App {
     let mut camera = Camera::new();
 
     self.load_plugins(&mut ui_manager, context.clone(), &mut entity_archive);
+
+    self.shader_archive.compile(&self.logger, context.clone());
 
     self.logger.info("opening debug menu".to_string());
     ui_manager.open("core.main_menu_bar", "debug_main_menu_bar");
@@ -214,15 +216,22 @@ impl App {
         self.logger.debug(format!("checking plugin {:?}", entry));
         if let Ok(meta) = entry.metadata() {
           if meta.is_dir() {
-            let plugin_dir = entry.path().join(&version);
+            let plugin_name = entry
+              .path()
+              .iter()
+              .last()
+              .unwrap()
+              .to_str()
+              .unwrap()
+              .to_string();
+            let plugin_version_dir = entry.path().join(&version);
             self
               .logger
-              .debug(format!("checking version dir {:?}", plugin_dir));
-            if let Ok(entries) = fs::read_dir(&plugin_dir) {
-              for entry in entries.flatten() {
+              .debug(format!("checking version dir {:?}", plugin_version_dir));
+            if let Ok(entries) = fs::read_dir(&plugin_version_dir) {
+              'dll: for entry in entries.flatten() {
                 self.logger.debug(format!("checking file {:?}", entry));
-                if let Some(extension) = entry.path().extension().and_then(std::ffi::OsStr::to_str)
-                {
+                if let Some(extension) = entry.path().extension().and_then(OsStr::to_str) {
                   // todo get string based on os
                   if extension != "dll" {
                     continue;
@@ -232,7 +241,8 @@ impl App {
 
                   let result = Lib::load_lib(&entry.path(), |lib: &mut Library| {
                     self.load_plugin(
-                      plugin_dir.clone(),
+                      plugin_name.clone(),
+                      plugin_version_dir.clone(),
                       lib,
                       ui_manager,
                       ctx.clone(),
@@ -245,6 +255,8 @@ impl App {
                       .logger
                       .error(format!("error loading {:?}: {}", entry, err));
                   }
+
+                  break 'dll;
                 }
               }
             }
@@ -256,6 +268,7 @@ impl App {
 
   fn load_plugin(
     &mut self,
+    name: String,
     path: PathBuf,
     lib: &mut Library,
     ui_manager: &mut UiManager,
@@ -264,7 +277,7 @@ impl App {
   ) -> Result<(), libloading::Error> {
     unsafe {
       let loader = lib.get::<PluginLoadFn>(b"exports")?;
-      let mut module = Mod::new(path, self.logger.spawn());
+      let mut module = Mod::new(name, path, self.logger.spawn());
       if loader(&mut module).is_ok() {
         self.add_mod(module, ui_manager, ctx, entity_archive);
       }
@@ -283,9 +296,7 @@ impl App {
     ui_manager.add_template_archive(module.ui_sources);
     // todo check results
     let _ = self.texture_archive.add_image_archive(module.images, &ctx);
-    self
-      .shader_archive
-      .add_source_archive(&self.logger, module.shaders, ctx);
+    self.shader_archive.add_source_archive(module.shaders);
     entity_archive.add_model_archive(module.entity_models);
   }
 }
@@ -309,20 +320,23 @@ impl AsPtr for App {}
 struct Mod {
   path: PathBuf,
   logger: ChildLogger,
+
   images: ImageArchive,
   shaders: ShaderSourceArchive,
+
   ui_models: UiModelArchive,
   ui_sources: UiTemplateSourceArchive,
+
   entity_models: EntityModelArchive,
 }
 
 impl Mod {
-  fn new(path: PathBuf, logger: ChildLogger) -> Self {
+  fn new(name: String, path: PathBuf, logger: ChildLogger) -> Self {
     Self {
       path,
       logger,
       images: Default::default(),
-      shaders: Default::default(),
+      shaders: ShaderSourceArchive::new(name),
       ui_models: Default::default(),
       ui_sources: Default::default(),
       entity_models: Default::default(),

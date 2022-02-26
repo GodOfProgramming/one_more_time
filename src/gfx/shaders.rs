@@ -1,18 +1,12 @@
 use crate::{
-  glium::{
-    backend::Context,
-    program::{Program, ProgramCreationError},
-  },
+  glium::{backend::Context, program::Program},
   util::prelude::*,
 };
 use lazy_static::lazy_static;
-use omt::gfx::{ShaderLoader, ShaderSource};
+use omt::gfx::ShaderLoader;
 use regex::Regex;
 use std::{
   collections::{BTreeMap, BTreeSet},
-  fs,
-  ops::Deref,
-  path::{Path, PathBuf},
   rc::Rc,
 };
 
@@ -21,88 +15,87 @@ lazy_static! {
     Regex::new(r##"^\s*#\s*import\s*"(?P<file>[\-\w.]+)"\s*$"##).unwrap();
 }
 
+struct ShaderSource {
+  vertex: String,
+  fragment: String,
+}
+
 #[derive(Default)]
 pub struct ShaderSourceArchive {
-  relative_path: PathBuf,
-  sources: BTreeMap<String, ShaderSource>,
+  prefix: String,
+  sources: BTreeMap<String, String>,
+  shaders: BTreeMap<String, ShaderSource>,
 }
 
 impl ShaderSourceArchive {
-  pub fn new(relative_path: PathBuf) -> Self {
+  pub fn new(prefix: String) -> Self {
     Self {
-      relative_path,
-      sources: Default::default(),
+      prefix,
+      ..Default::default()
     }
   }
 }
 
 impl ShaderLoader for ShaderSourceArchive {
-  fn register(&mut self, id: &str, src: ShaderSource) {
-    self.sources.insert(id.to_string(), src);
+  fn register(&mut self, id: &str, src: &str) {
+    self
+      .sources
+      .insert(format!("{}.{}", self.prefix, id), src.to_string());
   }
-}
 
-struct ProgramSource {
-  vertex: String,
-  fragment: String,
-}
-
-pub struct Shader {
-  program: Program,
-}
-
-impl Shader {
-  fn from(ctx: Rc<Context>, sources: ProgramSource) -> Result<Self, ProgramCreationError> {
-    let program = Program::from_source(&ctx, &sources.vertex, &sources.fragment, None)?;
-
-    Ok(Self { program })
-  }
-}
-
-impl Deref for Shader {
-  type Target = Program;
-  fn deref(&self) -> &Self::Target {
-    &self.program
+  fn register_shader(&mut self, id: &str, vertex_id: &str, fragment_id: &str) {
+    self.shaders.insert(
+      id.to_string(),
+      ShaderSource {
+        vertex: vertex_id.to_string(),
+        fragment: fragment_id.to_string(),
+      },
+    );
   }
 }
 
 #[derive(Default)]
 pub struct ShaderProgramArchive {
-  shaders: BTreeMap<String, Rc<Shader>>,
+  sources: BTreeMap<String, String>,
+  shaders: BTreeMap<String, ShaderSource>,
+  programs: BTreeMap<String, Rc<Program>>,
 }
 
 impl ShaderProgramArchive {
-  pub fn add_source_archive<L: Logger>(
-    &mut self,
-    logger: &L,
-    archive: ShaderSourceArchive,
-    ctx: Rc<Context>,
-  ) {
-    let load_source = |file: &Path| {
-      let src_path = archive.relative_path.join(file);
+  pub fn add_source_archive(&mut self, archive: ShaderSourceArchive) {
+    for (id, source) in archive.sources {
+      self.sources.insert(id, source);
+    }
 
-      Self::load_source(
+    for (id, shader_source) in archive.shaders {
+      self.shaders.insert(id, shader_source);
+    }
+  }
+
+  pub fn compile<L: Logger>(&mut self, logger: &L, ctx: Rc<Context>) {
+    for (id, source) in &self.shaders {
+      match Self::load_source(
         logger,
-        &src_path,
+        &source.vertex,
+        &self.sources,
         &mut Vec::default(),
         &mut BTreeSet::default(),
-      )
-    };
-
-    for (id, source) in archive.sources {
-      match load_source(&source.vertex) {
-        Ok(vertex) => match load_source(&source.fragment) {
-          Ok(fragment) => {
-            let sources = ProgramSource { vertex, fragment };
-            match Shader::from(ctx.clone(), sources) {
-              Ok(shader) => {
-                self.shaders.insert(id, Rc::new(shader));
-              }
-              Err(err) => {
-                logger.error(format!("failed to load shader: {}", err));
-              }
+      ) {
+        Ok(vertex) => match Self::load_source(
+          logger,
+          &source.fragment,
+          &self.sources,
+          &mut Vec::default(),
+          &mut BTreeSet::default(),
+        ) {
+          Ok(fragment) => match Program::from_source(&ctx, &vertex, &fragment, None) {
+            Ok(program) => {
+              self.programs.insert(id.clone(), Rc::new(program));
             }
-          }
+            Err(err) => {
+              logger.error(format!("failed to load shader: {}", err));
+            }
+          },
           Err(err) => {
             logger.error(format!(
               "failed to load fragment shader for program {}: {}",
@@ -120,8 +113,8 @@ impl ShaderProgramArchive {
     }
   }
 
-  pub fn get(&self, id: &str) -> Option<Rc<Shader>> {
-    self.shaders.get(id).cloned()
+  pub fn get(&self, id: &str) -> Option<Rc<Program>> {
+    self.programs.get(id).cloned()
   }
 
   pub fn list(&self) -> Vec<String> {
@@ -134,46 +127,42 @@ impl ShaderProgramArchive {
     ret
   }
 
-  fn load_source<L: Logger>(
+  fn load_source<'src, L: Logger>(
     logger: &L,
-    shader_path: &Path,
+    source_id: &str,
+    sources: &BTreeMap<String, String>,
     imported_files: &mut Vec<String>,
     successful_imports: &mut BTreeSet<String>,
   ) -> Result<String, String> {
-    let mut base_path = shader_path.to_path_buf();
-    base_path.pop();
-
-    let source_code = fs::read_to_string(shader_path).unwrap();
-    let shader_str = shader_path.to_str().unwrap();
+    let source_code = sources.get(source_id).unwrap();
 
     // don't import self
-    imported_files.push(shader_str.to_string());
+    imported_files.push(source_id.to_string());
 
     let mut lines = Vec::new();
-
     for line in source_code.lines() {
       if let Some(caps) = IMPORT_REGEX.captures(line) {
-        let import = base_path.join(&caps["file"]);
-        let import_str = format!("{}", import.display());
+        let import = caps["file"].to_string();
 
-        if imported_files.contains(&import_str) {
+        if imported_files.contains(&import) {
           return Err(format!(
-            "circular dependency detected processing:\n{}\nalready imported file:\n{}",
-            shader_str, import_str,
+            "circular dependency detected processing: {} | this dependency requires current source: {}",
+            source_id, import,
           ));
         }
 
-        if successful_imports.contains(&import_str) {
-          logger.debug(format!("already imported '{}', skipping", import_str));
+        if successful_imports.contains(&import) {
+          logger.debug(format!("already imported '{}', skipping", import));
           continue;
         }
 
-        let import_source = Self::load_source(logger, &import, imported_files, successful_imports)?;
+        let import_source =
+          Self::load_source(logger, &import, sources, imported_files, successful_imports)?;
 
         // replace import line with import source
         lines.push(import_source);
 
-        successful_imports.insert(import_str);
+        successful_imports.insert(import);
       } else {
         lines.push(line.to_string());
       }
@@ -188,3 +177,21 @@ impl ShaderProgramArchive {
 }
 
 impl AsPtr for ShaderProgramArchive {}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn import_shader_works() {
+    let test_strings = vec![r#"#import "main.shader.vs""#, r#"#import "main.shader.fs""#];
+    let expected_imports = vec!["main.shader.vs", "main.shader.fs"];
+
+    for (test, expected) in test_strings.iter().zip(expected_imports.iter()) {
+      if let Some(caps) = IMPORT_REGEX.captures(test) {
+        let import = caps["file"].to_string();
+        assert_eq!(expected.to_string(), import);
+      }
+    }
+  }
+}
