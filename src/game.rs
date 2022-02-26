@@ -69,7 +69,8 @@ impl App {
     self.logger.info("initializing entities".to_string());
     let mut entity_archive = EntityArchive::new(self.logger.spawn());
 
-    let mut fps_manager = FpsManager::new(self.settings.graphics.fps.into());
+    let fps = self.settings.get_fps();
+    let mut fps_manager = FpsManager::new(fps);
 
     let mut puffin_ui = ProfilerUi::default();
 
@@ -152,20 +153,14 @@ impl App {
 
       self.input_devices.new_frame();
 
-      imgui_ctx.io_mut().display_size = [
-        self.settings.display.window.x as f32,
-        self.settings.display.window.y as f32,
-      ];
+      let (window_width, window_height) = self.settings.get_window_size();
+
+      imgui_ctx.io_mut().display_size = [window_width as f32, window_height as f32];
 
       // render logic
 
-      let mut frame = glium::Frame::new(
-        context.clone(),
-        (
-          self.settings.display.window.x,
-          self.settings.display.window.y,
-        ),
-      );
+      let mut frame =
+        glium::Frame::new(context.clone(), (window_width as u32, window_height as u32));
 
       frame.clear_color(i.sin(), 0.30, 1.0 - i.sin(), 1.0);
 
@@ -179,11 +174,11 @@ impl App {
 
       ui_manager.update(&ui, &mut self);
 
-      if self.settings.game.show_profiler {
+      if self.settings.get_show_profiler() {
         puffin_ui.window(&ui);
       }
 
-      if self.settings.game.show_demo_window {
+      if self.settings.get_show_demo_window() {
         ui.show_demo_window(&mut true);
       }
 

@@ -32,4 +32,4 @@ pub enum PluginLoadError {
 
 pub type PluginResult = Result<(), PluginLoadError>;
 
-pub type PluginLoadFn = unsafe extern "C" fn(*mut dyn Plugin) -> PluginResult;
+pub type PluginLoadFn = unsafe fn(*mut dyn Plugin) -> PluginResult;

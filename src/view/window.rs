@@ -13,6 +13,7 @@ use glfw::{
   WindowHint,
 };
 use imgui_glium_renderer::imgui;
+use omt::{toml::Value, util::Settings as OmtSettings};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
@@ -41,7 +42,7 @@ impl Window {
 
     let (mut window_handle, event_stream) =
       glfw_handle.with_primary_monitor(|glfw_handle: &mut Glfw, monitor: Option<&Monitor>| {
-        let (mode, width, height) = match settings.display.mode.as_str() {
+        let (mode, width, height) = match settings.get_display_mode().as_str() {
           "fullscreen" => {
             let vid_mode: VidMode = monitor.unwrap().get_video_mode().unwrap();
             glfw_handle.window_hint(WindowHint::RedBits(Some(vid_mode.red_bits)));
@@ -49,8 +50,21 @@ impl Window {
             glfw_handle.window_hint(WindowHint::GreenBits(Some(vid_mode.green_bits)));
             glfw_handle.window_hint(WindowHint::RefreshRate(Some(vid_mode.refresh_rate)));
 
-            settings.display.window.x = vid_mode.width;
-            settings.display.window.y = vid_mode.height;
+            let vid_mode_width = vid_mode.width;
+            settings.modify(
+              &["display", "window", "width"],
+              Box::new(move |val| {
+                *val = Value::Integer(vid_mode_width as i64);
+              }),
+            );
+
+            let vid_mode_height = vid_mode.height;
+            settings.modify(
+              &["display", "window", "height"],
+              Box::new(move |val| {
+                *val = Value::Integer(vid_mode_height as i64);
+              }),
+            );
 
             (
               glfw::WindowMode::FullScreen(monitor.unwrap()),
@@ -58,15 +72,20 @@ impl Window {
               vid_mode.height,
             )
           }
-          _ => (
-            glfw::WindowMode::Windowed,
-            settings.display.window.x,
-            settings.display.window.y,
-          ),
+          _ => {
+            let (window_width, window_height) = settings.get_window_size();
+            (
+              glfw::WindowMode::Windowed,
+              window_width as u32,
+              window_height as u32,
+            )
+          }
         };
 
+        let title = settings.get_title();
+
         glfw_handle
-          .create_window(width, height, &settings.display.title, mode)
+          .create_window(width, height, &title, mode)
           .unwrap()
       });
 

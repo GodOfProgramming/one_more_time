@@ -10,42 +10,38 @@ mod ui;
 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn exports(plugin: *mut dyn Plugin) -> PluginResult {
-  let mut plugin = Box::from_raw(plugin);
-
+pub unsafe fn exports(plugin: &mut dyn Plugin) -> PluginResult {
   // entities
   {
-    load_entities(&mut plugin);
+    load_entities(plugin);
   }
 
   // textures
   {
     let iter = RecursiveDirIteratorWithID::new(&plugin.path().join("tex"));
-    load_textures(&mut plugin, iter);
+    load_textures(plugin, iter);
   }
 
   // shaders
   {
     let iter = RecursiveDirIteratorWithID::new_with_ext(&plugin.path().join("shaders"));
-    load_shaders(&mut plugin, iter);
+    load_shaders(plugin, iter);
   }
 
   // ui
   {
     let iter = RecursiveDirIteratorWithID::new(&plugin.path().join("ui"));
-    load_ui(&mut plugin, iter);
+    load_ui(plugin, iter);
   }
-
-  Box::into_raw(plugin);
 
   Ok(())
 }
 
-pub fn load_entities(plugin: &mut Box<dyn Plugin>) {
+pub fn load_entities(plugin: &mut dyn Plugin) {
   plugin.entity_models().register("test", Box::new(TestModel));
 }
 
-pub fn load_textures(plugin: &mut Box<dyn Plugin>, iter: RecursiveDirIteratorWithID) {
+pub fn load_textures(plugin: &mut dyn Plugin, iter: RecursiveDirIteratorWithID) {
   plugin.logger().info("loading textures".to_string());
   for (id, path) in iter {
     plugin.logger().info(format!("loading {}", id));
@@ -65,7 +61,7 @@ pub fn load_textures(plugin: &mut Box<dyn Plugin>, iter: RecursiveDirIteratorWit
   }
 }
 
-pub fn load_shaders(plugin: &mut Box<dyn Plugin>, iter: RecursiveDirIteratorWithID) {
+pub fn load_shaders(plugin: &mut dyn Plugin, iter: RecursiveDirIteratorWithID) {
   plugin
     .shaders()
     .register_shader("basic", "main.basic.vs", "main.basic.fs");
@@ -77,7 +73,7 @@ pub fn load_shaders(plugin: &mut Box<dyn Plugin>, iter: RecursiveDirIteratorWith
   }
 }
 
-pub fn load_ui(plugin: &mut Box<dyn Plugin>, iter: RecursiveDirIteratorWithID) {
+pub fn load_ui(plugin: &mut dyn Plugin, iter: RecursiveDirIteratorWithID) {
   plugin.logger().info("loading ui".to_string());
 
   plugin

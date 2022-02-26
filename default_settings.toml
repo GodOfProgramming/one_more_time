@@ -1,0 +1,14 @@
+[display]
+title = "Game"
+video_mode = "fullscreen"
+
+[display.window]
+width = 1280
+height = 720
+
+[graphics]
+fps = 60
+
+[game]
+show_or_hide_profiler = false
+show_or_hide_demo_window = false

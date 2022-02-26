@@ -17,8 +17,9 @@ impl Camera {
   }
 
   pub fn update(&mut self, settings: &Settings) {
-    let width_2 = (settings.display.window.x / 2) as f32;
-    let height_2 = (settings.display.window.y / 2) as f32;
+    let (window_width, window_height) = settings.get_window_size();
+    let width_2 = (window_width / 2) as f32;
+    let height_2 = (window_height / 2) as f32;
 
     // self.projection = glm::ortho(-width_2, width_2, -height_2, height_2, 0.1, 100.0);
     self.projection = glm::perspective(16.0 / 9.0, 45_f32.to_radians(), 0.1, 100.0);

@@ -1,14 +1,9 @@
 use common::*;
-use omt::toml::{value::Table, Value};
+use omt::toml::Value;
 use std::{
   fs,
   path::{Path, PathBuf},
 };
-
-pub mod display;
-pub mod game;
-pub mod graphics;
-pub mod scripts;
 
 mod common {
   pub use crate::util::prelude::*;
@@ -16,55 +11,20 @@ mod common {
   pub use std::cell::Cell;
 }
 
-mod keys {
-  pub const DISPLAY: &str = "display";
-  pub const GRAPHICS: &str = "graphics";
-  pub const GAME: &str = "game";
-  pub const SCRIPTS: &str = "scripts";
-}
-
-#[derive(Default, Debug)]
 pub struct Settings {
   file: PathBuf,
-  root: Table,
-  pub display: display::Settings,
-  pub graphics: graphics::Settings,
-  pub game: game::Settings,
-  pub scripts: scripts::Settings,
+  root: Value,
 }
 
 impl Settings {
-  fn new(file: PathBuf) -> Self {
-    Self {
-      file,
-      ..Default::default()
-    }
+  fn new(file: PathBuf, root: Value) -> Self {
+    Self { file, root }
   }
 
   pub fn load(p: &Path) -> Result<Settings, String> {
     match fs::read_to_string(p) {
       Ok(data) => match data.parse::<Value>() {
-        Ok(root) => {
-          let mut settings = Settings::new(p.to_path_buf());
-
-          if let Some(Value::Table(display)) = root.get(keys::DISPLAY) {
-            settings.display = display::Settings::from(display);
-          }
-
-          if let Some(Value::Table(graphics)) = root.get(keys::GRAPHICS) {
-            settings.graphics = graphics::Settings::from(graphics);
-          }
-
-          if let Some(Value::Table(game)) = root.get(keys::GAME) {
-            settings.game = game::Settings::from(game);
-          }
-
-          if let Some(Value::Table(scripts)) = root.get(keys::SCRIPTS) {
-            settings.scripts = scripts::Settings::from(scripts);
-          }
-
-          Ok(settings)
-        }
+        Ok(root) => Ok(Settings::new(p.to_path_buf(), root)),
         Err(e) => Err(format!("could not parse settings '{}'", e)),
       },
       Err(e) => Err(format!("could not read settings at '{:?}': {}", p, e)),
@@ -72,26 +32,7 @@ impl Settings {
   }
 
   pub fn save(&self) -> Result<(), String> {
-    let mut root = Table::new();
-
-    root.insert(
-      String::from(keys::DISPLAY),
-      Value::Table((&self.display).into()),
-    );
-
-    root.insert(
-      String::from(keys::GRAPHICS),
-      Value::Table((&self.graphics).into()),
-    );
-
-    root.insert(String::from(keys::GAME), Value::Table((&self.game).into()));
-
-    root.insert(
-      String::from(keys::SCRIPTS),
-      Value::Table((&self.scripts).into()),
-    );
-
-    match toml::to_string_pretty(&root) {
+    match toml::to_string_pretty(&self.root) {
       Ok(data) => fs::write(&self.file, data)
         .map_err(|e| format!("could not write settings to '{:?}': {}", self.file, e)),
       Err(e) => Err(format!(
@@ -100,13 +41,100 @@ impl Settings {
       )),
     }
   }
+
+  pub fn get_window_size(&self) -> (i64, i64) {
+    let mut size = (1280, 720);
+
+    if let Value::Table(table) = Self::traverse(&self.root, &["display", "window"]) {
+      size.0 = match table.get("width") {
+        Some(Value::Float(w)) => *w as i64,
+        Some(Value::Integer(w)) => *w,
+        _ => 1280,
+      };
+
+      size.1 = match table.get("height") {
+        Some(Value::Float(h)) => *h as i64,
+        Some(Value::Integer(h)) => *h,
+        _ => 720,
+      };
+    }
+
+    size
+  }
+
+  pub fn get_display_mode(&self) -> String {
+    if let Value::String(vid_mode) = Self::traverse(&self.root, &["display", "video_mode"]) {
+      vid_mode.clone()
+    } else {
+      String::from("fullscreen")
+    }
+  }
+
+  pub fn get_title(&self) -> String {
+    if let Value::String(title) = Self::traverse(&self.root, &["display", "title"]) {
+      title.clone()
+    } else {
+      String::from("game")
+    }
+  }
+
+  pub fn get_fps(&self) -> u64 {
+    if let Value::Integer(fps) = Self::traverse(&self.root, &["graphics", "fps"]) {
+      std::cmp::max(*fps, 144) as u64
+    } else {
+      60
+    }
+  }
+
+  pub fn get_show_profiler(&self) -> bool {
+    if let Value::Boolean(show_profiler) = Self::traverse(&self.root, &["game", "show_profiler"]) {
+      *show_profiler
+    } else {
+      false
+    }
+  }
+
+  pub fn get_show_demo_window(&self) -> bool {
+    if let Value::Boolean(show_demo_window) =
+      Self::traverse(&self.root, &["game", "show_demo_window"])
+    {
+      *show_demo_window
+    } else {
+      false
+    }
+  }
+
+  fn traverse<'v>(value: &'v Value, path: &[&str]) -> &'v Value {
+    if !path.is_empty() {
+      if let Value::Table(table) = value {
+        if let Some(inner_value) = table.get(&path.first().unwrap().to_string()) {
+          return Self::traverse(inner_value, &path[1..]);
+        }
+      }
+    }
+    value
+  }
+
+  fn traverse_mut<F: FnOnce(&mut Value)>(f: F, value: &mut Value, path: &[&str]) {
+    if !path.is_empty() {
+      if let Value::Table(table) = value {
+        if let Some(inner_value) = table.get_mut(&path.first().unwrap().to_string()) {
+          Self::traverse_mut(f, inner_value, &path[1..]);
+          return;
+        }
+      }
+    }
+    f(value);
+  }
 }
 
 impl omt::util::Settings for Settings {
-  fn modify(&mut self, name: &str, f: Box<dyn for<'r> FnOnce(&'r mut omt::toml::Value)>) {
-    if let Some(child) = self.root.get_mut(name) {
-      f(child);
-    }
+  fn lookup(&self, path: &[&str]) -> &Value {
+    Self::traverse(&self.root, path)
+  }
+
+  fn modify(&mut self, path: &[&str], f: Box<dyn FnOnce(&mut Value)>) {
+    Self::traverse_mut(f, &mut self.root, path);
   }
 }
 

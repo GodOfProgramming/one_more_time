@@ -17,28 +17,20 @@ impl UiModelInstance for DebugMainMenu {
     match name {
       "show_or_hide_profiler" => {
         game.settings().modify(
-          "game",
-          Box::new(|game_settings: &mut Value| {
-            if let Value::Table(game_settings) = game_settings {
-              if let Some(Value::Boolean(show_or_hide_profiler)) =
-                game_settings.get_mut("show_or_hide_profiler")
-              {
-                *show_or_hide_profiler = !*show_or_hide_profiler;
-              }
+          &["game", "show_profiler"],
+          Box::new(|value: &mut Value| {
+            if let Value::Boolean(show_or_hide_profiler) = value {
+              *show_or_hide_profiler = !*show_or_hide_profiler;
             }
           }),
         );
       }
       "show_or_hide_demo_window" => {
         game.settings().modify(
-          "game",
-          Box::new(|game_settings: &mut Value| {
-            if let Value::Table(game_settings) = game_settings {
-              if let Some(Value::Boolean(show_or_hide_demo_window)) =
-                game_settings.get_mut("show_or_hide_demo_window")
-              {
-                *show_or_hide_demo_window = !*show_or_hide_demo_window;
-              }
+          &["game", "show_demo_window"],
+          Box::new(|value: &mut Value| {
+            if let Value::Boolean(show_or_hide_demo_window) = value {
+              *show_or_hide_demo_window = !*show_or_hide_demo_window;
             }
           }),
         );
